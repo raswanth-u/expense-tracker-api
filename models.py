@@ -8,6 +8,7 @@ class Expense(SQLModel, table=True):
     category: str
     description: Optional[str] = None
     date: str
+    payment_method: Optional[str] = None
 
 
 
