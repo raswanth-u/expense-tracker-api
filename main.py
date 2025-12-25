@@ -1,10 +1,12 @@
 import os
-from fastapi import FastAPI, Depends, HTTPException, Security
-from fastapi.security import APIKeyHeader
-from sqlmodel import Session, create_engine, SQLModel, select, func
 from contextlib import asynccontextmanager
-from models import Expense
+
+from fastapi import Depends, FastAPI, HTTPException, Security
+from fastapi.security import APIKeyHeader
+from sqlmodel import Session, SQLModel, create_engine, func, select
+
 from logging_config import setup_logging
+from models import Expense
 
 logger = setup_logging()
 
@@ -59,14 +61,14 @@ def update_expense(
     if not existing:
         logger.warning(f"Update failed: Expense ID {expense_id} not found")
         raise HTTPException(status_code=404, detail="Expense not found")
-    
+
     # Update fields from the incoming data
     existing.amount = expense_data.amount
     existing.category = expense_data.category
     existing.description = expense_data.description
     existing.date = expense_data.date
     existing.payment_method = expense_data.payment_method
-    
+
     session.add(existing)
     session.commit()
     session.refresh(existing)
@@ -90,14 +92,14 @@ def get_expenses(
     if min_amount is not None:
         query = query.where(Expense.amount >= min_amount)
     if max_amount is not None:
-        query = query.where(Expense.amount <= max_amount) 
+        query = query.where(Expense.amount <= max_amount)
     if from_date is not None:
         query = query.where(Expense.date >= from_date)
     if to_date is not None:
         query = query.where(Expense.date <= to_date)
     if payment_method is not None:
         query = query.where(Expense.payment_method == payment_method)
-    
+
     response = session.exec(query).all()
     logger.info(f"Retrieved {len(response)} expenses with filters - category: {category}, min_amount: {min_amount}, max_amount: {max_amount}, from_date: {from_date}, to_date: {to_date}, payment_method: {payment_method}")
     return list(response)
@@ -129,7 +131,7 @@ def get_summary(
         {"category": category, "total": total}
         for category, total in results
     ]
-    
+
 @app.get("/expenses/payment_summary")
 def get_payment_summary(
     from_date: str | None = None,
