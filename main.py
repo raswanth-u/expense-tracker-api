@@ -65,6 +65,7 @@ def update_expense(
     existing.category = expense_data.category
     existing.description = expense_data.description
     existing.date = expense_data.date
+    existing.payment_method = expense_data.payment_method
     
     session.add(existing)
     session.commit()
@@ -79,6 +80,7 @@ def get_expenses(
                     max_amount: float | None = None,
                     from_date: str | None = None,
                     to_date: str | None = None,
+                    payment_method: str | None = None,
                     session: Session=Depends(get_session),
                     api_key: str = Depends(verify_api_key)
                 ):
@@ -93,9 +95,11 @@ def get_expenses(
         query = query.where(Expense.date >= from_date)
     if to_date is not None:
         query = query.where(Expense.date <= to_date)
+    if payment_method is not None:
+        query = query.where(Expense.payment_method == payment_method)
     
     response = session.exec(query).all()
-    logger.info(f"Retrieved {len(response)} expenses with filters - category: {category}, min_amount: {min_amount}, max_amount: {max_amount}, from_date: {from_date}, to_date: {to_date}")
+    logger.info(f"Retrieved {len(response)} expenses with filters - category: {category}, min_amount: {min_amount}, max_amount: {max_amount}, from_date: {from_date}, to_date: {to_date}, payment_method: {payment_method}")
     return list(response)
 
 @app.get("/expenses/summary")
@@ -124,6 +128,34 @@ def get_summary(
     return [
         {"category": category, "total": total}
         for category, total in results
+    ]
+    
+@app.get("/expenses/payment_summary")
+def get_payment_summary(
+    from_date: str | None = None,
+    to_date: str | None = None,
+    session: Session = Depends(get_session),
+    api_key: str = Depends(verify_api_key)
+):
+    query = select(
+        Expense.payment_method,
+        func.sum(Expense.amount).label("total"),
+    )
+
+    # Optional date range filters reused from expenses
+    if from_date is not None:
+        query = query.where(Expense.date >= from_date)
+    if to_date is not None:
+        query = query.where(Expense.date <= to_date)
+
+    query = query.group_by(Expense.payment_method)
+
+    results = session.exec(query).all()
+
+    # Normalize into list of dicts for JSON
+    return [
+        {"payment_method": payment_method, "total": total}
+        for payment_method, total in results
     ]
 
 # Note: Path parameter routes MUST come after /expenses/summary
