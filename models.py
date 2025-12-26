@@ -1,6 +1,8 @@
+from typing import Any
+
 from pydantic import BaseModel, field_validator
 from sqlmodel import Field, SQLModel
-from typing import Any
+
 
 # Database model
 class Expense(SQLModel, table=True):
