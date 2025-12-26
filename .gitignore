@@ -1,30 +1,50 @@
-# Environment
-.env
-*.env.local
-
 # Python
 __pycache__/
 *.py[cod]
-*.egg-info/
-.venv/
+*$py.class
+*.so
+.Python
 venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
 
-# Data
-tracker-data/
-*.db
+# Testing
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+*.cover
 
-# SSL certs (never commit real certs)
-nginx/ssl/*.pem
-nginx/ssl/*.key
-nginx/ssl/*.crt
-
-# IDE
+# IDEs
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 
-# Logs
+# Environment
+.env
+.env.local
+
+# Database
+tracker-data/
+*.db
+*.sqlite
+
+# Docker
 *.log
 
 # OS
 .DS_Store
 Thumbs.db
+
+# CI/CD
+.github/workflows/*.log
+
+# SSL certificates (don't commit private keys!)
+nginx/ssl/*.key
+nginx/ssl/*.pem
+!nginx/ssl/.gitkeep

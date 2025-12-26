@@ -86,6 +86,7 @@ jobs:
             cd /app/expense-tracker
             
             # Pull latest image
+            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
             
             # Stop old containers
@@ -99,7 +100,7 @@ jobs:
             
             # Health check
             sleep 10
-            curl -f http://localhost:8000/health || exit 1
+            curl -f http://localhost:8000/api/health -k || exit 1
 
       - name: Notify on success
         if: success()
