@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 
 class JSONFormatter(logging.Formatter):
-    def format(self, record):
+    def format(self, record: logging.LogRecord) -> str:
         log_data = {
             "timestamp": datetime.now(UTC).isoformat(),
             "level": record.levelname,
@@ -33,7 +33,7 @@ class JSONFormatter(logging.Formatter):
 
         return json.dumps(log_data)
 
-def setup_logging():
+def setup_logging() -> logging.Logger:
     logger = logging.getLogger("expense_tracker")
     logger.setLevel(logging.INFO)
 

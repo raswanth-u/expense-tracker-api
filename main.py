@@ -1,12 +1,13 @@
 import os
 from contextlib import asynccontextmanager
+from typing import AsyncGenerator, Generator
 
 from fastapi import Depends, FastAPI, HTTPException, Security
 from fastapi.security import APIKeyHeader
 from sqlmodel import Session, SQLModel, create_engine, func, select
 
 from logging_config import setup_logging
-from models import Expense
+from models import Expense, ExpenseCreate
 
 logger = setup_logging()
 
@@ -15,7 +16,7 @@ logger.info("Starting Expenses API...")
 # 1. Define where to look for the key
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
-def verify_api_key(api_key: str = Security(api_key_header)):
+def verify_api_key(api_key: str = Security(api_key_header)) -> str:
     expected_api_key = os.getenv("API_KEY", "dev-key-change-in-prod")
     if api_key != expected_api_key:
         logger.warning("Authentication failed: Invalid API key")
@@ -26,27 +27,42 @@ def verify_api_key(api_key: str = Security(api_key_header)):
 DATABASE_URL =os.getenv("DATABASE_URL","postgresql://expense_admin:password@db:5432/expenses_db")
 engine = create_engine(DATABASE_URL)
 
-def create_db_and_tables():
+def create_db_and_tables() -> None:
     SQLModel.metadata.create_all(engine)
 
 @asynccontextmanager
-async def lifespan(app:FastAPI):
+async def lifespan(app:FastAPI) -> AsyncGenerator[None, None]:
     create_db_and_tables()
     yield
 
 # 2. Dependency: Get a session for a single request
-def get_session():
+def get_session() -> Generator[Session, None, None]:
     with Session(engine) as session:
         yield session
 
 app = FastAPI(lifespan=lifespan)
 
 # 3. The Endpoint
+# @app.post("/expenses/")
+# def create_expenses(expense: Expense, session: Session=Depends(get_session), api_key: str = Depends(verify_api_key)):
+#     session.add(expense)        # Stage Changes
+#     session.commit()            # Save to DB
+#     session.refresh(expense)    # Reload to get the generated ID
+#     logger.info(f"Created expense with ID: {expense.id}")
+#     return expense
+
 @app.post("/expenses/")
-def create_expenses(expense: Expense, session: Session=Depends(get_session), api_key: str = Depends(verify_api_key)):
-    session.add(expense)        # Stage Changes
-    session.commit()            # Save to DB
-    session.refresh(expense)    # Reload to get the generated ID
+def create_expenses(
+    expense_data: ExpenseCreate,  # ← Use validation model
+    session: Session = Depends(get_session),
+    api_key: str = Depends(verify_api_key)
+) -> Expense:
+    # Convert to database model
+    expense = Expense(**expense_data.model_dump())
+
+    session.add(expense)
+    session.commit()
+    session.refresh(expense)
     logger.info(f"Created expense with ID: {expense.id}")
     return expense
 
@@ -56,7 +72,7 @@ def update_expense(
     expense_data: Expense,
     session: Session = Depends(get_session),
     api_key: str = Depends(verify_api_key)
-):
+) -> Expense:
     existing = session.get(Expense, expense_id)
     if not existing:
         logger.warning(f"Update failed: Expense ID {expense_id} not found")
@@ -85,7 +101,7 @@ def get_expenses(
                     payment_method: str | None = None,
                     session: Session=Depends(get_session),
                     api_key: str = Depends(verify_api_key)
-                ):
+                ) -> list[Expense]:
     query = select(Expense)
     if category is not None:
         query = query.where(Expense.category == category)
@@ -110,7 +126,7 @@ def get_summary(
     to_date: str | None = None,
     session: Session = Depends(get_session),
     api_key: str = Depends(verify_api_key)
-):
+) -> list[dict[str, str | float]]:
     query = select(
         Expense.category,
         func.sum(Expense.amount).label("total"),
@@ -138,7 +154,7 @@ def get_payment_summary(
     to_date: str | None = None,
     session: Session = Depends(get_session),
     api_key: str = Depends(verify_api_key)
-):
+) -> list[dict[str, str | float | None]]:
     query = select(
         Expense.payment_method,
         func.sum(Expense.amount).label("total"),
@@ -162,7 +178,7 @@ def get_payment_summary(
 
 # Note: Path parameter routes MUST come after /expenses/summary
 @app.get("/expenses/{expense_id}")
-def get_expense(expense_id: int, session: Session = Depends(get_session), api_key: str = Depends(verify_api_key)):
+def get_expense(expense_id: int, session: Session = Depends(get_session), api_key: str = Depends(verify_api_key)) -> Expense:
     expense = session.get(Expense, expense_id)
     if not expense:
         logger.warning(f"Get failed: Expense ID {expense_id} not found")
@@ -171,7 +187,7 @@ def get_expense(expense_id: int, session: Session = Depends(get_session), api_ke
     return expense
 
 @app.delete("/expenses/{expense_id}")
-def delete_expense(expense_id: int, session: Session = Depends(get_session), api_key: str = Depends(verify_api_key)):
+def delete_expense(expense_id: int, session: Session = Depends(get_session), api_key: str = Depends(verify_api_key)) -> dict[str, str | int]:
     expense = session.get(Expense, expense_id)
     if not expense:
         logger.warning(f"Delete failed: Expense ID {expense_id} not found")
