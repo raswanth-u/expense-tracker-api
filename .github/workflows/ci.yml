@@ -9,6 +9,9 @@ on:
   # Allow manual trigger
   workflow_dispatch:
 
+  # Allow being called by other workflows (CD)
+  workflow_call:  # ← This makes it reusable
+
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}

@@ -83,10 +83,13 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
+            set -e
             cd /app/expense-tracker
             
             # Pull latest image
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            
+            # Pull latest image
             docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
             
             # Stop old containers
@@ -94,13 +97,22 @@ jobs:
             
             # Start new containers
             docker compose up -d
+
+            # Wait for services to be ready
+            echo "Waiting for services to start..."
+            sleep 15
             
             # Clean up old images
             docker image prune -f
             
             # Health check
-            sleep 10
-            curl -f http://localhost:8000/api/health -k || exit 1
+            curl -f https://localhost/health -k || {
+              echo "Health check failed!"
+              docker compose logs api
+              exit 1
+            }
+
+            echo "Deployment successful!"
 
       - name: Notify on success
         if: success()
