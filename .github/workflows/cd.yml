@@ -76,6 +76,20 @@ jobs:
     environment: production  # Requires manual approval in GitHub settings
     
     steps:
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
+          version: 1.56.1
+          args: --ssh
+      
+      - name: Verify Tailscale connection
+        run: |
+          echo "Tailscale status:"
+          tailscale status
+          echo "Testing connection to server..."
+          ping -c 3 ${{ secrets.SERVER_HOST }} || echo "Ping failed, but SSH might still work"
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -102,9 +116,6 @@ jobs:
             echo "Waiting for services to start..."
             sleep 15
             
-            # Clean up old images
-            docker image prune -f
-            
             # Health check
             curl -f https://localhost/health -k || {
               echo "Health check failed!"
@@ -112,6 +123,9 @@ jobs:
               exit 1
             }
 
+            # Clean up old images
+            docker image prune -f
+            
             echo "Deployment successful!"
 
       - name: Notify on success
