@@ -1194,3 +1194,549 @@ def delete_credit_card(
     
     logger.info(f"Deactivated credit card ID {card_id}")
     return {"message": "Credit card deactivated", "card_id": card_id}
+
+# ============================================
+# ADVANCED REPORTS & ANALYTICS ENDPOINTS
+# ============================================
+
+@app.get("/reports/monthly")
+def get_monthly_report(
+    month: str,
+    user_id: int | None = None,
+    session: Session = Depends(get_session),
+    api_key: str = Depends(verify_api_key)
+):
+    """
+    Comprehensive monthly report with all metrics
+    """
+    
+    start_date = f"{month}-01"
+    year, month_num = map(int, month.split('-'))
+    
+    # Calculate end date
+    if month_num == 12:
+        end_date = f"{year + 1}-01-01"
+    else:
+        end_date = f"{year}-{month_num + 1:02d}-01"
+    
+    # Build base query
+    expense_query = select(Expense).where(
+        Expense.date >= start_date,
+        Expense.date < end_date
+    )
+    
+    if user_id is not None:
+        expense_query = expense_query.where(Expense.user_id == user_id)
+    
+    expenses = session.exec(expense_query).all()
+    
+    if not expenses:
+        return {
+            "month": month,
+            "user_id": user_id,
+            "message": "No expenses found for this period",
+            "total_spent": 0,
+            "transaction_count": 0
+        }
+    
+    # Calculate totals
+    total_spent = sum(e.amount for e in expenses)
+    
+    # Category breakdown
+    by_category = {}
+    for exp in expenses:
+        by_category[exp.category] = by_category.get(exp.category, 0) + exp.amount
+    
+    # Payment method breakdown
+    by_payment = {}
+    for exp in expenses:
+        by_payment[exp.payment_method] = by_payment.get(exp.payment_method, 0) + exp.amount
+    
+    # Daily spending trend
+    by_date = {}
+    for exp in expenses:
+        by_date[exp.date] = by_date.get(exp.date, 0) + exp.amount
+    
+    # Get budget comparison if user specified
+    budget_comparison = None
+    if user_id is not None:
+        budgets = session.exec(
+            select(Budget).where(
+                Budget.user_id == user_id,
+                Budget.month == month,
+                Budget.is_active == True
+            )
+        ).all()
+        
+        if budgets:
+            total_budget = sum(b.amount for b in budgets)
+            budget_comparison = {
+                "total_budget": total_budget,
+                "total_spent": total_spent,
+                "remaining": total_budget - total_spent,
+                "percentage": round((total_spent / total_budget * 100), 2) if total_budget > 0 else 0
+            }
+    
+    # Top 5 expenses
+    top_expenses = sorted(expenses, key=lambda x: x.amount, reverse=True)[:5]
+    
+    # Recurring expenses
+    recurring = [e for e in expenses if e.is_recurring]
+    recurring_total = sum(e.amount for e in recurring)
+    
+    return {
+        "month": month,
+        "user_id": user_id,
+        "period": f"{start_date} to {end_date}",
+        "summary": {
+            "total_spent": round(total_spent, 2),
+            "transaction_count": len(expenses),
+            "average_transaction": round(total_spent / len(expenses), 2),
+            "largest_expense": round(max(e.amount for e in expenses), 2),
+            "smallest_expense": round(min(e.amount for e in expenses), 2)
+        },
+        "by_category": {k: round(v, 2) for k, v in sorted(by_category.items(), key=lambda x: x[1], reverse=True)},
+        "by_payment_method": {k: round(v, 2) for k, v in by_payment.items()},
+        "budget_comparison": budget_comparison,
+        "top_expenses": [
+            {
+                "date": e.date,
+                "category": e.category,
+                "description": e.description,
+                "amount": e.amount
+            }
+            for e in top_expenses
+        ],
+        "recurring_expenses": {
+            "count": len(recurring),
+            "total": round(recurring_total, 2)
+        },
+        "daily_trend": {k: round(by_date[k], 2) for k in sorted(by_date.keys())}
+    }
+
+
+@app.get("/reports/family-summary")
+def get_family_summary(
+    month: str,
+    session: Session = Depends(get_session),
+    api_key: str = Depends(verify_api_key)
+):
+    """
+    Family-wide spending summary showing all members
+    """
+    
+    users = session.exec(select(User).where(User.is_active == True)).all()
+    
+    if not users:
+        return {
+            "month": month,
+            "message": "No active users found",
+            "members": []
+        }
+    
+    start_date = f"{month}-01"
+    year, month_num = map(int, month.split('-'))
+    
+    if month_num == 12:
+        end_date = f"{year + 1}-01-01"
+    else:
+        end_date = f"{year}-{month_num + 1:02d}-01"
+    
+    member_summaries = []
+    total_family_spent = 0
+    
+    for user in users:
+        # Get user's expenses
+        expenses = session.exec(
+            select(Expense).where(
+                Expense.user_id == user.id,
+                Expense.date >= start_date,
+                Expense.date < end_date
+            )
+        ).all()
+        
+        spent = sum(e.amount for e in expenses)
+        total_family_spent += spent
+        
+        # Get user's budgets
+        budgets = session.exec(
+            select(Budget).where(
+                Budget.user_id == user.id,
+                Budget.month == month,
+                Budget.is_active == True
+            )
+        ).all()
+        
+        total_budget = sum(b.amount for b in budgets)
+        
+        # Top category for this user
+        by_category = {}
+        for exp in expenses:
+            by_category[exp.category] = by_category.get(exp.category, 0) + exp.amount
+        
+        top_category = max(by_category.items(), key=lambda x: x[1]) if by_category else ("None", 0)
+        
+        member_summaries.append({
+            "user_id": user.id,
+            "name": user.name,
+            "total_spent": round(spent, 2),
+            "transaction_count": len(expenses),
+            "budget": round(total_budget, 2) if budgets else None,
+            "budget_status": (
+                "within_budget" if total_budget > 0 and spent <= total_budget else
+                "over_budget" if total_budget > 0 and spent > total_budget else
+                "no_budget"
+            ),
+            "top_category": {
+                "name": top_category[0],
+                "amount": round(top_category[1], 2)
+            }
+        })
+    
+    # Sort by spending (highest first)
+    member_summaries.sort(key=lambda x: x["total_spent"], reverse=True)
+    
+    return {
+        "month": month,
+        "period": f"{start_date} to {end_date}",
+        "family_total": round(total_family_spent, 2),
+        "member_count": len(users),
+        "average_per_member": round(total_family_spent / len(users), 2),
+        "members": member_summaries
+    }
+
+
+@app.get("/reports/category-analysis")
+def get_category_analysis(
+    category: str,
+    from_date: str,
+    to_date: str,
+    user_id: int | None = None,
+    session: Session = Depends(get_session),
+    api_key: str = Depends(verify_api_key)
+):
+    """
+    Deep dive analysis of a specific category
+    """
+    
+    query = select(Expense).where(
+        Expense.category == category,
+        Expense.date >= from_date,
+        Expense.date <= to_date
+    )
+    
+    if user_id is not None:
+        query = query.where(Expense.user_id == user_id)
+    
+    expenses = session.exec(query).all()
+    
+    if not expenses:
+        return {
+            "category": category,
+            "message": "No expenses found for this category",
+            "total": 0
+        }
+    
+    # Calculate statistics
+    amounts = [e.amount for e in expenses]
+    total = sum(amounts)
+    
+    # Payment method breakdown
+    by_payment = {}
+    for exp in expenses:
+        by_payment[exp.payment_method] = by_payment.get(exp.payment_method, 0) + exp.amount
+    
+    # Monthly trend
+    by_month = {}
+    for exp in expenses:
+        month = exp.date[:7]  # YYYY-MM
+        by_month[month] = by_month.get(month, 0) + exp.amount
+    
+    # If multiple users, show per-user breakdown
+    by_user = {}
+    if user_id is None:
+        for exp in expenses:
+            user = session.get(User, exp.user_id)
+            user_name = user.name if user else f"User {exp.user_id}"
+            by_user[user_name] = by_user.get(user_name, 0) + exp.amount
+    
+    return {
+        "category": category,
+        "period": f"{from_date} to {to_date}",
+        "user_id": user_id,
+        "summary": {
+            "total_spent": round(total, 2),
+            "transaction_count": len(expenses),
+            "average_transaction": round(total / len(expenses), 2),
+            "highest_transaction": round(max(amounts), 2),
+            "lowest_transaction": round(min(amounts), 2)
+        },
+        "by_payment_method": {k: round(v, 2) for k, v in by_payment.items()},
+        "monthly_trend": {k: round(v, 2) for k in sorted(by_month.keys())},
+        "by_user": {k: round(v, 2) for k, v in by_user.items()} if by_user else None,
+        "recent_transactions": [
+            {
+                "date": e.date,
+                "description": e.description,
+                "amount": e.amount,
+                "payment_method": e.payment_method
+            }
+            for e in sorted(expenses, key=lambda x: x.date, reverse=True)[:10]
+        ]
+    }
+
+
+@app.get("/reports/spending-trends")
+def get_spending_trends(
+    months: int = 6,
+    user_id: int | None = None,
+    session: Session = Depends(get_session),
+    api_key: str = Depends(verify_api_key)
+):
+    """
+    Analyze spending trends over multiple months
+    """
+    
+    from datetime import datetime, timedelta
+    
+    today = datetime.now()
+    monthly_data = []
+    
+    for i in range(months):
+        # Calculate month
+        month_date = today - timedelta(days=30 * i)
+        month_str = month_date.strftime("%Y-%m")
+        
+        start_date = f"{month_str}-01"
+        year, month_num = map(int, month_str.split('-'))
+        
+        if month_num == 12:
+            end_date = f"{year + 1}-01-01"
+        else:
+            end_date = f"{year}-{month_num + 1:02d}-01"
+        
+        # Get expenses for this month
+        query = select(Expense).where(
+            Expense.date >= start_date,
+            Expense.date < end_date
+        )
+        
+        if user_id is not None:
+            query = query.where(Expense.user_id == user_id)
+        
+        expenses = session.exec(query).all()
+        
+        total = sum(e.amount for e in expenses)
+        
+        # Category breakdown
+        by_category = {}
+        for exp in expenses:
+            by_category[exp.category] = by_category.get(exp.category, 0) + exp.amount
+        
+        top_category = max(by_category.items(), key=lambda x: x[1]) if by_category else ("None", 0)
+        
+        monthly_data.append({
+            "month": month_str,
+            "total_spent": round(total, 2),
+            "transaction_count": len(expenses),
+            "top_category": {
+                "name": top_category[0],
+                "amount": round(top_category[1], 2)
+            }
+        })
+    
+    # Reverse to show oldest first
+    monthly_data.reverse()
+    
+    # Calculate trend
+    if len(monthly_data) >= 2:
+        recent_avg = sum(m["total_spent"] for m in monthly_data[-3:]) / min(3, len(monthly_data))
+        older_avg = sum(m["total_spent"] for m in monthly_data[:3]) / min(3, len(monthly_data))
+        
+        if recent_avg > older_avg * 1.1:
+            trend = "increasing"
+        elif recent_avg < older_avg * 0.9:
+            trend = "decreasing"
+        else:
+            trend = "stable"
+    else:
+        trend = "insufficient_data"
+    
+    total_spent = sum(m["total_spent"] for m in monthly_data)
+    avg_monthly = total_spent / len(monthly_data) if monthly_data else 0
+    
+    return {
+        "user_id": user_id,
+        "months_analyzed": months,
+        "total_spent": round(total_spent, 2),
+        "average_monthly": round(avg_monthly, 2),
+        "trend": trend,
+        "monthly_data": monthly_data
+    }
+
+
+@app.get("/reports/payment-method-analysis")
+def get_payment_method_analysis(
+    from_date: str,
+    to_date: str,
+    user_id: int | None = None,
+    session: Session = Depends(get_session),
+    api_key: str = Depends(verify_api_key)
+):
+    """
+    Analyze spending by payment method
+    """
+    
+    query = select(Expense).where(
+        Expense.date >= from_date,
+        Expense.date <= to_date
+    )
+    
+    if user_id is not None:
+        query = query.where(Expense.user_id == user_id)
+    
+    expenses = session.exec(query).all()
+    
+    if not expenses:
+        return {
+            "message": "No expenses found",
+            "total": 0
+        }
+    
+    total = sum(e.amount for e in expenses)
+    
+    # Payment method breakdown
+    by_payment = {}
+    payment_counts = {}
+    
+    for exp in expenses:
+        method = exp.payment_method
+        by_payment[method] = by_payment.get(method, 0) + exp.amount
+        payment_counts[method] = payment_counts.get(method, 0) + 1
+    
+    # Calculate percentages and averages
+    payment_analysis = []
+    for method, amount in by_payment.items():
+        percentage = (amount / total * 100) if total > 0 else 0
+        count = payment_counts[method]
+        avg_transaction = amount / count
+        
+        payment_analysis.append({
+            "payment_method": method,
+            "total_spent": round(amount, 2),
+            "transaction_count": count,
+            "average_transaction": round(avg_transaction, 2),
+            "percentage_of_total": round(percentage, 2)
+        })
+    
+    # Sort by amount
+    payment_analysis.sort(key=lambda x: x["total_spent"], reverse=True)
+    
+    # Credit card specific analysis
+    credit_card_expenses = [e for e in expenses if e.payment_method == "credit_card"]
+    credit_card_total = sum(e.amount for e in credit_card_expenses)
+    
+    # Group by credit card
+    by_card = {}
+    if credit_card_expenses:
+        for exp in credit_card_expenses:
+            if exp.credit_card_id:
+                card = session.get(CreditCard, exp.credit_card_id)
+                card_name = f"{card.card_name} ({card.last_four})" if card else "Unknown Card"
+                by_card[card_name] = by_card.get(card_name, 0) + exp.amount
+    
+    return {
+        "period": f"{from_date} to {to_date}",
+        "user_id": user_id,
+        "total_spent": round(total, 2),
+        "transaction_count": len(expenses),
+        "by_payment_method": payment_analysis,
+        "credit_card_breakdown": {k: round(v, 2) for k, v in by_card.items()} if by_card else None,
+        "credit_card_total": round(credit_card_total, 2)
+    }
+
+
+@app.get("/reports/export")
+def export_expenses(
+    from_date: str,
+    to_date: str,
+    user_id: int | None = None,
+    format: str = "json",
+    session: Session = Depends(get_session),
+    api_key: str = Depends(verify_api_key)
+):
+    """
+    Export expenses in different formats (JSON or CSV)
+    """
+    
+    query = select(Expense).where(
+        Expense.date >= from_date,
+        Expense.date <= to_date
+    )
+    
+    if user_id is not None:
+        query = query.where(Expense.user_id == user_id)
+    
+    expenses = session.exec(query.order_by(Expense.date)).all()
+    
+    if format == "csv":
+        from fastapi.responses import StreamingResponse
+        import io
+        import csv
+        
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # Write header
+        writer.writerow([
+            'Date', 'User ID', 'Category', 'Description', 
+            'Amount', 'Payment Method', 'Credit Card ID', 
+            'Is Recurring', 'Tags'
+        ])
+        
+        # Write data
+        for exp in expenses:
+            writer.writerow([
+                exp.date,
+                exp.user_id,
+                exp.category,
+                exp.description or '',
+                exp.amount,
+                exp.payment_method,
+                exp.credit_card_id or '',
+                exp.is_recurring,
+                exp.tags or ''
+            ])
+        
+        output.seek(0)
+        
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": f"attachment; filename=expenses_{from_date}_to_{to_date}.csv"
+            }
+        )
+    
+    else:  # JSON format
+        return {
+            "period": f"{from_date} to {to_date}",
+            "user_id": user_id,
+            "total_expenses": len(expenses),
+            "total_amount": round(sum(e.amount for e in expenses), 2),
+            "expenses": [
+                {
+                    "id": e.id,
+                    "date": e.date,
+                    "user_id": e.user_id,
+                    "category": e.category,
+                    "description": e.description,
+                    "amount": e.amount,
+                    "payment_method": e.payment_method,
+                    "credit_card_id": e.credit_card_id,
+                    "is_recurring": e.is_recurring,
+                    "tags": e.tags
+                }
+                for e in expenses
+            ]
+        }
