@@ -16,12 +16,28 @@ class JSONFormatter(logging.Formatter):
 
         # Capture extra fields
         standard_attrs = {
-            'name', 'msg', 'args', 'created', 'filename',
-            'funcName', 'levelname', 'levelno', 'lineno',
-            'module', 'pathname', 'process', 'processName',
-            'relativeCreated', 'stack_info', 'exc_info',
-            'exc_text', 'thread', 'threadName', 'taskName',
-            'message', 'msecs'
+            "name",
+            "msg",
+            "args",
+            "created",
+            "filename",
+            "funcName",
+            "levelname",
+            "levelno",
+            "lineno",
+            "module",
+            "pathname",
+            "process",
+            "processName",
+            "relativeCreated",
+            "stack_info",
+            "exc_info",
+            "exc_text",
+            "thread",
+            "threadName",
+            "taskName",
+            "message",
+            "msecs",
         }
 
         for key, value in record.__dict__.items():
@@ -32,6 +48,7 @@ class JSONFormatter(logging.Formatter):
             log_data["exception"] = self.formatException(record.exc_info)
 
         return json.dumps(log_data)
+
 
 def setup_logging() -> logging.Logger:
     logger = logging.getLogger("expense_tracker")
