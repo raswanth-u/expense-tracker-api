@@ -1,13 +1,24 @@
 import os
 from collections.abc import AsyncGenerator, Generator
 from contextlib import asynccontextmanager
+from datetime import datetime
+from typing import List
 
 from fastapi import Depends, FastAPI, HTTPException, Security
 from fastapi.security import APIKeyHeader
 from sqlmodel import Session, SQLModel, create_engine, func, select
 
 from logging_config import setup_logging
-from models import Expense, ExpenseCreate
+from models import (
+    Expense,
+    ExpenseCreate,
+    User,
+    UserCreate,
+    CreditCard,
+    CreditCardCreate,
+    Budget,
+    BudgetCreate,
+)
 
 logger = setup_logging()
 
@@ -23,12 +34,31 @@ def verify_api_key(api_key: str = Security(api_key_header)) -> str:
         raise HTTPException(status_code=403, detail="Could not validate credentials")
     return api_key
 
+# Database Setup - Handle both Docker and local environments
+def get_database_url():
+    """Get database URL based on environment"""
+    env_url = os.getenv("DATABASE_URL")
+    if env_url:
+        return env_url
+    
+    # Check if running in Docker (hostname 'db' is resolvable)
+    import socket
+    try:
+        socket.gethostbyname('db')
+        # Inside Docker network
+        return "postgresql://expense_admin:supersecretpostgrespassword@db:5432/expenses_db"
+    except socket.gaierror:
+        # Outside Docker, use localhost
+        return "postgresql://expense_admin:supersecretpostgrespassword@localhost:5432/expenses_db"
+    
 # 1. Setup DB Connection
-DATABASE_URL =os.getenv("DATABASE_URL","postgresql://expense_admin:password@db:5432/expenses_db")
+DATABASE_URL = get_database_url()
+logger.info(f"Using database: {DATABASE_URL.split('@')[1]}")  # Log host only (hide password)
 engine = create_engine(DATABASE_URL)
 
 def create_db_and_tables() -> None:
     SQLModel.metadata.create_all(engine)
+    logger.info("Database tables created/verified")
 
 @asynccontextmanager
 async def lifespan(app:FastAPI) -> AsyncGenerator[None, None]:
@@ -40,16 +70,17 @@ def get_session() -> Generator[Session, None, None]:
     with Session(engine) as session:
         yield session
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(
+    title="Family Expense Tracker API",
+    description="Track expenses, budgets, and credit cards for family members",
+    version="2.0.0",
+    lifespan=lifespan
+)
 
-# 3. The Endpoint
-# @app.post("/expenses/")
-# def create_expenses(expense: Expense, session: Session=Depends(get_session), api_key: str = Depends(verify_api_key)):
-#     session.add(expense)        # Stage Changes
-#     session.commit()            # Save to DB
-#     session.refresh(expense)    # Reload to get the generated ID
-#     logger.info(f"Created expense with ID: {expense.id}")
-#     return expense
+# Health check endpoint (no auth required)
+@app.get("/health")
+def health_check():
+    return "OK"
 
 @app.post("/expenses/")
 def create_expenses(
