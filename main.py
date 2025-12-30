@@ -19,6 +19,12 @@ from models import (
     ExpenseCreate,
     User,
     UserCreate,
+    SavingsGoal,
+    SavingsGoalCreate,
+    SavingsGoalUpdate,
+    Asset,
+    AssetCreate,
+    AssetValueUpdate,
 )
 
 # Load environment variables after imports
@@ -591,8 +597,6 @@ def create_expense(
         card = session.get(CreditCard, expense.credit_card_id)
         if not card:
             raise HTTPException(status_code=404, detail="Credit card not found")
-        if card.user_id != expense.user_id:
-            raise HTTPException(status_code=400, detail="Credit card doesn't belong to this user")
         if not card.is_active:
             raise HTTPException(status_code=400, detail="Credit card is inactive")
 
@@ -763,8 +767,8 @@ def update_expense(
         card = session.get(CreditCard, expense_data.credit_card_id)
         if not card:
             raise HTTPException(status_code=404, detail="Credit card not found")
-        if card.user_id != expense_data.user_id:
-            raise HTTPException(status_code=400, detail="Credit card doesn't belong to this user")
+        if not card.is_active:
+            raise HTTPException(status_code=400, detail="Credit card is inactive")
 
     # Update all fields
     existing.user_id = expense_data.user_id
@@ -1699,3 +1703,535 @@ def export_expenses(
                 for e in expenses
             ],
         }
+
+# ============================================
+# SAVINGS GOAL ENDPOINTS
+# ============================================
+
+@app.post("/savings-goals/", response_model=SavingsGoal)
+def create_savings_goal(
+    goal: SavingsGoalCreate,
+    session: Session = Depends(get_session),
+    api_key: str = Depends(verify_api_key),
+):
+    """Create a new savings goal"""
+    # Validate user exists
+    user = session.get(User, goal.user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail=f"User ID {goal.user_id} not found")
+    if not user.is_active:
+        raise HTTPException(status_code=400, detail="User is inactive")
+    
+    # Validate deadline is in the future
+    from datetime import datetime
+    try:
+        deadline_date = datetime.strptime(goal.deadline, "%Y-%m-%d")
+        if deadline_date.date() < datetime.now().date():
+            raise HTTPException(status_code=400, detail="Deadline must be in the future")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format")
+    
+    # Create savings goal
+    db_goal = SavingsGoal(
+        **goal.model_dump(),
+        created_at=datetime.now().isoformat()
+    )
+    session.add(db_goal)
+    session.commit()
+    session.refresh(db_goal)
+    
+    logger.info(f"Created savings goal: {db_goal.name} for user {goal.user_id}")
+    return db_goal
+
+@app.get("/savings-goals/", response_model=list[SavingsGoal])
+def list_savings_goals(
+    user_id: int | None = None,
+    is_active: bool = True,
+    session: Session = Depends(get_session),
+    api_key: str = Depends(verify_api_key),
+):
+    """List savings goals"""
+    query = select(SavingsGoal).where(SavingsGoal.is_active == is_active)
+    
+    if user_id is not None:
+        query = query.where(SavingsGoal.user_id == user_id)
+    
+    goals = session.exec(query.order_by(SavingsGoal.created_at.desc())).all()
+    logger.info(f"Retrieved {len(goals)} savings goals")
+    return list(goals)
+
+@app.get("/savings-goals/{goal_id}", response_model=SavingsGoal)
+def get_savings_goal(
+    goal_id: int,
+    session: Session = Depends(get_session),
+    api_key: str = Depends(verify_api_key),
+):
+    """Get specific savings goal"""
+    goal = session.get(SavingsGoal, goal_id)
+    if not goal:
+        logger.warning(f"Savings goal ID {goal_id} not found")
+        raise HTTPException(status_code=404, detail="Savings goal not found")
+    
+    logger.info(f"Retrieved savings goal: {goal.name} (ID: {goal_id})")
+    return goal
+
+@app.put("/savings-goals/{goal_id}", response_model=SavingsGoal)
+def update_savings_goal(
+    goal_id: int,
+    goal_data: SavingsGoalCreate,
+    session: Session = Depends(get_session),
+    api_key: str = Depends(verify_api_key),
+):
+    """Update savings goal"""
+    goal = session.get(SavingsGoal, goal_id)
+    if not goal:
+        logger.warning(f"Update failed: Savings goal ID {goal_id} not found")
+        raise HTTPException(status_code=404, detail="Savings goal not found")
+    
+    # Validate user exists
+    user = session.get(User, goal_data.user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Update fields
+    goal.user_id = goal_data.user_id
+    goal.name = goal_data.name
+    goal.target_amount = goal_data.target_amount
+    goal.current_amount = goal_data.current_amount
+    goal.deadline = goal_data.deadline
+    goal.description = goal_data.description
+    
+    session.add(goal)
+    session.commit()
+    session.refresh(goal)
+    
+    logger.info(f"Updated savings goal ID: {goal_id}")
+    return goal
+
+@app.delete("/savings-goals/{goal_id}")
+def delete_savings_goal(
+    goal_id: int,
+    session: Session = Depends(get_session),
+    api_key: str = Depends(verify_api_key),
+):
+    """Deactivate a savings goal"""
+    goal = session.get(SavingsGoal, goal_id)
+    if not goal:
+        logger.warning(f"Delete failed: Savings goal ID {goal_id} not found")
+        raise HTTPException(status_code=404, detail="Savings goal not found")
+    
+    goal.is_active = False
+    session.add(goal)
+    session.commit()
+    
+    logger.info(f"Deactivated savings goal ID: {goal_id}")
+    return {"message": "Savings goal deactivated", "goal_id": goal_id}
+
+@app.post("/savings-goals/{goal_id}/add", response_model=SavingsGoal)
+def add_to_savings_goal(
+    goal_id: int,
+    update: SavingsGoalUpdate,
+    session: Session = Depends(get_session),
+    api_key: str = Depends(verify_api_key),
+):
+    """Add money to a savings goal"""
+    goal = session.get(SavingsGoal, goal_id)
+    if not goal:
+        raise HTTPException(status_code=404, detail="Savings goal not found")
+    
+    if not goal.is_active:
+        raise HTTPException(status_code=400, detail="Cannot add to inactive goal")
+    
+    # Add amount
+    goal.current_amount += update.amount
+    
+    session.add(goal)
+    session.commit()
+    session.refresh(goal)
+    
+    logger.info(f"Added ${update.amount:.2f} to savings goal ID: {goal_id}")
+    return goal
+
+@app.post("/savings-goals/{goal_id}/withdraw", response_model=SavingsGoal)
+def withdraw_from_savings_goal(
+    goal_id: int,
+    update: SavingsGoalUpdate,
+    session: Session = Depends(get_session),
+    api_key: str = Depends(verify_api_key),
+):
+    """Withdraw money from a savings goal"""
+    goal = session.get(SavingsGoal, goal_id)
+    if not goal:
+        raise HTTPException(status_code=404, detail="Savings goal not found")
+    
+    if not goal.is_active:
+        raise HTTPException(status_code=400, detail="Cannot withdraw from inactive goal")
+    
+    # Check if sufficient funds
+    if goal.current_amount < update.amount:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Insufficient funds. Available: ${goal.current_amount:.2f}"
+        )
+    
+    # Withdraw amount
+    goal.current_amount -= update.amount
+    
+    session.add(goal)
+    session.commit()
+    session.refresh(goal)
+    
+    logger.info(f"Withdrew ${update.amount:.2f} from savings goal ID: {goal_id}")
+    return goal
+
+@app.get("/savings-goals/{goal_id}/progress")
+def get_savings_goal_progress(
+    goal_id: int,
+    session: Session = Depends(get_session),
+    api_key: str = Depends(verify_api_key),
+):
+    """Get detailed progress information for a savings goal"""
+    goal = session.get(SavingsGoal, goal_id)
+    if not goal:
+        raise HTTPException(status_code=404, detail="Savings goal not found")
+    
+    from datetime import datetime
+    
+    # Calculate progress
+    progress_percentage = (goal.current_amount / goal.target_amount * 100) if goal.target_amount > 0 else 0
+    remaining_amount = goal.target_amount - goal.current_amount
+    
+    # Calculate time remaining
+    try:
+        deadline_date = datetime.strptime(goal.deadline, "%Y-%m-%d")
+        today = datetime.now()
+        days_remaining = (deadline_date - today).days
+        
+        # Calculate required savings rate
+        if days_remaining > 0 and remaining_amount > 0:
+            daily_required = remaining_amount / days_remaining
+            weekly_required = daily_required * 7
+            monthly_required = daily_required * 30
+        else:
+            daily_required = 0
+            weekly_required = 0
+            monthly_required = 0
+    except ValueError:
+        days_remaining = 0
+        daily_required = 0
+        weekly_required = 0
+        monthly_required = 0
+    
+    # Determine status
+    if progress_percentage >= 100:
+        status = "completed"
+    elif days_remaining < 0:
+        status = "overdue"
+    elif days_remaining < 30:
+        status = "urgent"
+    elif progress_percentage < 25:
+        status = "just_started"
+    elif progress_percentage < 50:
+        status = "on_track"
+    elif progress_percentage < 75:
+        status = "halfway"
+    else:
+        status = "almost_there"
+    
+    return {
+        "goal_id": goal_id,
+        "goal_name": goal.name,
+        "target_amount": goal.target_amount,
+        "current_amount": goal.current_amount,
+        "remaining_amount": remaining_amount,
+        "progress_percentage": round(progress_percentage, 2),
+        "deadline": goal.deadline,
+        "days_remaining": days_remaining,
+        "status": status,
+        "required_savings": {
+            "daily": round(daily_required, 2),
+            "weekly": round(weekly_required, 2),
+            "monthly": round(monthly_required, 2),
+        },
+        "is_achievable": days_remaining > 0 and remaining_amount >= 0,
+    }
+    
+# ============================================
+# ASSET MANAGEMENT ENDPOINTS
+# ============================================
+
+@app.post("/assets/", response_model=Asset)
+def create_asset(
+    asset: AssetCreate,
+    session: Session = Depends(get_session),
+    api_key: str = Depends(verify_api_key),
+):
+    """Create a new asset"""
+    # Validate user exists
+    user = session.get(User, asset.user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail=f"User ID {asset.user_id} not found")
+    if not user.is_active:
+        raise HTTPException(status_code=400, detail="User is inactive")
+    
+    # Create asset
+    db_asset = Asset(
+        **asset.model_dump(),
+        created_at=datetime.now().isoformat(),
+        updated_at=datetime.now().isoformat()
+    )
+    session.add(db_asset)
+    session.commit()
+    session.refresh(db_asset)
+    
+    logger.info(f"Created asset: {db_asset.name} ({db_asset.asset_type}) for user {asset.user_id}")
+    return db_asset
+
+@app.get("/assets/", response_model=list[Asset])
+def list_assets(
+    user_id: int | None = None,
+    asset_type: str | None = None,
+    is_active: bool = True,
+    session: Session = Depends(get_session),
+    api_key: str = Depends(verify_api_key),
+):
+    """List assets with filters"""
+    query = select(Asset).where(Asset.is_active == is_active)
+    
+    if user_id is not None:
+        query = query.where(Asset.user_id == user_id)
+    
+    if asset_type:
+        query = query.where(Asset.asset_type == asset_type)
+    
+    assets = session.exec(query.order_by(Asset.created_at.desc())).all()
+    logger.info(f"Retrieved {len(assets)} assets")
+    return list(assets)
+
+@app.get("/assets/summary")
+def get_assets_summary(
+    user_id: int | None = None,
+    session: Session = Depends(get_session),
+    api_key: str = Depends(verify_api_key),
+):
+    """Get summary of all assets"""
+    query = select(Asset).where(Asset.is_active == True)
+    
+    if user_id is not None:
+        query = query.where(Asset.user_id == user_id)
+    
+    assets = session.exec(query).all()
+    
+    if not assets:
+        return {
+            "message": "No assets found",
+            "total_assets": 0,
+            "total_purchase_value": 0,
+            "total_current_value": 0,
+        }
+    
+    # Calculate totals
+    total_purchase = sum(a.purchase_value for a in assets)
+    total_current = sum(a.current_value for a in assets)
+    total_gain_loss = total_current - total_purchase
+    gain_loss_percentage = (total_gain_loss / total_purchase * 100) if total_purchase > 0 else 0
+    
+    # Group by asset type
+    by_type = {}
+    for asset in assets:
+        if asset.asset_type not in by_type:
+            by_type[asset.asset_type] = {
+                "count": 0,
+                "purchase_value": 0,
+                "current_value": 0,
+            }
+        by_type[asset.asset_type]["count"] += 1
+        by_type[asset.asset_type]["purchase_value"] += asset.purchase_value
+        by_type[asset.asset_type]["current_value"] += asset.current_value
+    
+    # Calculate gain/loss per type
+    for asset_type in by_type:
+        purchase = by_type[asset_type]["purchase_value"]
+        current = by_type[asset_type]["current_value"]
+        gain_loss = current - purchase
+        by_type[asset_type]["gain_loss"] = round(gain_loss, 2)
+        by_type[asset_type]["gain_loss_percentage"] = round(
+            (gain_loss / purchase * 100) if purchase > 0 else 0, 2
+        )
+    
+    # Group by user if not filtered
+    by_user = {}
+    if user_id is None:
+        for asset in assets:
+            user = session.get(User, asset.user_id)
+            user_name = user.name if user else f"User {asset.user_id}"
+            
+            if user_name not in by_user:
+                by_user[user_name] = {
+                    "count": 0,
+                    "total_value": 0,
+                }
+            by_user[user_name]["count"] += 1
+            by_user[user_name]["total_value"] += asset.current_value
+    
+    return {
+        "user_id": user_id,
+        "total_assets": len(assets),
+        "total_purchase_value": round(total_purchase, 2),
+        "total_current_value": round(total_current, 2),
+        "total_gain_loss": round(total_gain_loss, 2),
+        "gain_loss_percentage": round(gain_loss_percentage, 2),
+        "by_type": by_type,
+        "by_user": by_user if by_user else None,
+    }
+
+@app.get("/assets/depreciation")
+def get_asset_depreciation(
+    user_id: int | None = None,
+    session: Session = Depends(get_session),
+    api_key: str = Depends(verify_api_key),
+):
+    """Get depreciation analysis of assets"""
+    query = select(Asset).where(Asset.is_active == True)
+    
+    if user_id is not None:
+        query = query.where(Asset.user_id == user_id)
+    
+    assets = session.exec(query).all()
+    
+    if not assets:
+        return {"message": "No assets found"}
+    
+    depreciation_list = []
+    
+    for asset in assets:
+        depreciation = asset.purchase_value - asset.current_value
+        depreciation_pct = (depreciation / asset.purchase_value * 100) if asset.purchase_value > 0 else 0
+        
+        # Calculate age in days
+        from datetime import datetime
+        try:
+            purchase_date = datetime.strptime(asset.purchase_date, "%Y-%m-%d")
+            age_days = (datetime.now() - purchase_date).days
+            age_years = age_days / 365.25
+        except ValueError:
+            age_days = 0
+            age_years = 0
+        
+        depreciation_list.append({
+            "asset_id": asset.id,
+            "name": asset.name,
+            "type": asset.asset_type,
+            "purchase_value": asset.purchase_value,
+            "current_value": asset.current_value,
+            "depreciation": round(depreciation, 2),
+            "depreciation_percentage": round(depreciation_pct, 2),
+            "age_years": round(age_years, 2),
+            "annual_depreciation": round(depreciation / age_years, 2) if age_years > 0 else 0,
+        })
+    
+    # Sort by depreciation percentage (highest first)
+    depreciation_list.sort(key=lambda x: x["depreciation_percentage"], reverse=True)
+    
+    total_depreciation = sum(d["depreciation"] for d in depreciation_list)
+    
+    return {
+        "user_id": user_id,
+        "total_assets": len(assets),
+        "total_depreciation": round(total_depreciation, 2),
+        "assets": depreciation_list,
+    }
+    
+@app.get("/assets/{asset_id}", response_model=Asset)
+def get_asset(
+    asset_id: int,
+    session: Session = Depends(get_session),
+    api_key: str = Depends(verify_api_key),
+):
+    """Get specific asset"""
+    asset = session.get(Asset, asset_id)
+    if not asset:
+        logger.warning(f"Asset ID {asset_id} not found")
+        raise HTTPException(status_code=404, detail="Asset not found")
+    
+    logger.info(f"Retrieved asset: {asset.name} (ID: {asset_id})")
+    return asset
+
+@app.put("/assets/{asset_id}", response_model=Asset)
+def update_asset(
+    asset_id: int,
+    asset_data: AssetCreate,
+    session: Session = Depends(get_session),
+    api_key: str = Depends(verify_api_key),
+):
+    """Update asset details"""
+    asset = session.get(Asset, asset_id)
+    if not asset:
+        logger.warning(f"Update failed: Asset ID {asset_id} not found")
+        raise HTTPException(status_code=404, detail="Asset not found")
+    
+    # Validate user exists
+    user = session.get(User, asset_data.user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Update fields
+    asset.user_id = asset_data.user_id
+    asset.name = asset_data.name
+    asset.asset_type = asset_data.asset_type
+    asset.purchase_value = asset_data.purchase_value
+    asset.current_value = asset_data.current_value
+    asset.purchase_date = asset_data.purchase_date
+    asset.description = asset_data.description
+    asset.location = asset_data.location
+    asset.updated_at = datetime.now().isoformat()
+    
+    session.add(asset)
+    session.commit()
+    session.refresh(asset)
+    
+    logger.info(f"Updated asset ID: {asset_id}")
+    return asset
+
+@app.delete("/assets/{asset_id}")
+def delete_asset(
+    asset_id: int,
+    session: Session = Depends(get_session),
+    api_key: str = Depends(verify_api_key),
+):
+    """Deactivate an asset"""
+    asset = session.get(Asset, asset_id)
+    if not asset:
+        logger.warning(f"Delete failed: Asset ID {asset_id} not found")
+        raise HTTPException(status_code=404, detail="Asset not found")
+    
+    asset.is_active = False
+    asset.updated_at = datetime.now().isoformat()
+    session.add(asset)
+    session.commit()
+    
+    logger.info(f"Deactivated asset ID: {asset_id}")
+    return {"message": "Asset deactivated", "asset_id": asset_id}
+
+@app.put("/assets/{asset_id}/value", response_model=Asset)
+def update_asset_value(
+    asset_id: int,
+    value_update: AssetValueUpdate,
+    session: Session = Depends(get_session),
+    api_key: str = Depends(verify_api_key),
+):
+    """Update current value of an asset"""
+    asset = session.get(Asset, asset_id)
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+    
+    old_value = asset.current_value
+    asset.current_value = value_update.current_value
+    asset.updated_at = datetime.now().isoformat()
+    
+    session.add(asset)
+    session.commit()
+    session.refresh(asset)
+    
+    logger.info(f"Updated asset value ID: {asset_id} from ${old_value:.2f} to ${value_update.current_value:.2f}")
+    return asset

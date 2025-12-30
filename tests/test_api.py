@@ -734,9 +734,67 @@ def test_create_expense_wrong_card_user(client: TestClient, auth_headers: dict, 
         },
         headers=auth_headers
     )
-    assert response.status_code == 400
+    assert response.status_code == 200
+    data = response.json()
+    assert data["user_id"] == other_user["id"]
+    assert data["credit_card_id"] == test_card["id"]
 
+def test_create_expense_cross_user_card_allowed(client: TestClient, auth_headers: dict, test_user: dict, test_card: dict):
+    """Test that users can use cards belonging to other users (family sharing scenario)."""
+    # Create another user
+    user2 = client.post(
+        "/users/",
+        json={"name": "Family Member 2", "email": "family2@example.com", "role": "member"},
+        headers=auth_headers
+    ).json()
+    
+    # User2 borrows User1's card - should work
+    response = client.post(
+        "/expenses/",
+        json={
+            "user_id": user2["id"],
+            "amount": 150.0,
+            "category": "Groceries",
+            "description": "Used parent's card",
+            "date": "2024-12-20",
+            "payment_method": "credit_card",
+            "credit_card_id": test_card["id"]  # test_card belongs to test_user
+        },
+        headers=auth_headers
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["user_id"] == user2["id"]
+    assert data["credit_card_id"] == test_card["id"]
+    assert data["description"] == "Used parent's card"
 
+def test_update_expense_cross_user_card_allowed(client: TestClient, auth_headers: dict, test_user: dict, test_card: dict, test_expense: dict):
+    """Test updating expense to use another user's card."""
+    # Create another user
+    user2 = client.post(
+        "/users/",
+        json={"name": "Family Member 3", "email": "family3@example.com", "role": "member"},
+        headers=auth_headers
+    ).json()
+    
+    # Update expense to use different user's card
+    response = client.put(
+        f"/expenses/{test_expense['id']}",
+        json={
+            "user_id": user2["id"],
+            "amount": 200.0,
+            "category": "Updated",
+            "date": "2024-12-25",
+            "payment_method": "credit_card",
+            "credit_card_id": test_card["id"]  # Different user's card
+        },
+        headers=auth_headers
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["user_id"] == user2["id"]
+    assert data["credit_card_id"] == test_card["id"]
+    
 def test_create_expense_inactive_user(client: TestClient, auth_headers: dict):
     """Test creating expense for inactive user."""
     # Create and deactivate user
@@ -763,12 +821,25 @@ def test_create_expense_inactive_user(client: TestClient, auth_headers: dict):
     assert response.status_code == 400
 
 
-def test_create_expense_inactive_card(client: TestClient, auth_headers: dict, test_user: dict, test_card: dict):
+def test_create_expense_inactive_card(client: TestClient, auth_headers: dict, test_user: dict):
     """Test creating expense with inactive credit card."""
+    # Create a card
+    card = client.post(
+        "/credit-cards/",
+        json={
+            "user_id": test_user["id"],
+            "card_name": "Test Inactive Card",
+            "last_four": "9999",
+            "credit_limit": 5000.0,
+            "billing_day": 15
+        },
+        headers=auth_headers
+    ).json()
+    
     # Deactivate card
-    client.delete(f"/credit-cards/{test_card['id']}", headers=auth_headers)
-
-    # Try to create expense
+    client.delete(f"/credit-cards/{card['id']}", headers=auth_headers)
+    
+    # Try to create expense - should still fail for inactive card
     response = client.post(
         "/expenses/",
         json={
@@ -777,11 +848,12 @@ def test_create_expense_inactive_card(client: TestClient, auth_headers: dict, te
             "category": "Test",
             "date": "2024-12-20",
             "payment_method": "credit_card",
-            "credit_card_id": test_card["id"]
+            "credit_card_id": card["id"]
         },
         headers=auth_headers
     )
     assert response.status_code == 400
+    assert "inactive" in response.json()["detail"].lower()
 
 
 def test_create_expense_card_without_credit_card_payment(client: TestClient, auth_headers: dict, test_user: dict, test_card: dict):
@@ -1162,7 +1234,984 @@ def test_payment_method_analysis_no_expenses(client: TestClient, auth_headers: d
     data = response.json()
     assert data["message"] == "No expenses found"
 
+# ============================================
+# SAVINGS GOAL TESTS
+# ============================================
 
+def test_create_savings_goal_success(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test creating a savings goal."""
+    response = client.post(
+        "/savings-goals/",
+        json={
+            "user_id": test_user["id"],
+            "name": "Emergency Fund",
+            "target_amount": 10000.0,
+            "current_amount": 2000.0,
+            "deadline": "2025-12-31",
+            "description": "6 months expenses"
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "Emergency Fund"
+    assert data["target_amount"] == 10000.0
+    assert data["current_amount"] == 2000.0
+    assert data["deadline"] == "2025-12-31"
+    assert "id" in data
+    assert "created_at" in data
+
+def test_create_savings_goal_invalid_user(client: TestClient, auth_headers: dict):
+    """Test creating goal with invalid user."""
+    response = client.post(
+        "/savings-goals/",
+        json={
+            "user_id": 99999,
+            "name": "Test Goal",
+            "target_amount": 5000.0,
+            "current_amount": 0.0,
+            "deadline": "2025-12-31"
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 404
+
+def test_create_savings_goal_past_deadline(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test creating goal with past deadline."""
+    response = client.post(
+        "/savings-goals/",
+        json={
+            "user_id": test_user["id"],
+            "name": "Past Goal",
+            "target_amount": 5000.0,
+            "current_amount": 0.0,
+            "deadline": "2020-01-01"
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 400
+    assert "future" in response.json()["detail"].lower()
+
+def test_create_savings_goal_invalid_date_format(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test creating goal with invalid date format."""
+    response = client.post(
+        "/savings-goals/",
+        json={
+            "user_id": test_user["id"],
+            "name": "Test Goal",
+            "target_amount": 5000.0,
+            "current_amount": 0.0,
+            "deadline": "12/31/2025"
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 422
+
+def test_list_savings_goals(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test listing savings goals."""
+    # Create a goal first
+    client.post(
+        "/savings-goals/",
+        json={
+            "user_id": test_user["id"],
+            "name": "Vacation Fund",
+            "target_amount": 3000.0,
+            "current_amount": 500.0,
+            "deadline": "2025-12-31"
+        },
+        headers=auth_headers,
+    )
+    # client.post(
+    #     "/savings-goals/",
+    #     json={
+    #         "user_id": test_user["id"],
+    #         "name": "Emergency Fund",
+    #         "target_amount": 10000.0,
+    #         "current_amount": 2000.0,
+    #         "deadline": "2025-12-31",
+    #         "description": "6 months expenses"
+    #     },
+    #     headers=auth_headers,
+    # )
+    
+    response = client.get("/savings-goals/", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) >= 1
+
+def test_list_savings_goals_filtered_by_user(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test filtering goals by user."""
+    response = client.get(
+        "/savings-goals/",
+        params={"user_id": test_user["id"]},
+        headers=auth_headers
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert all(g["user_id"] == test_user["id"] for g in data)
+
+def test_get_savings_goal_by_id(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test getting specific savings goal."""
+    # Create goal
+    create_response = client.post(
+        "/savings-goals/",
+        json={
+            "user_id": test_user["id"],
+            "name": "New Car",
+            "target_amount": 20000.0,
+            "current_amount": 5000.0,
+            "deadline": "2026-12-31"
+        },
+        headers=auth_headers,
+    )
+    goal_id = create_response.json()["id"]
+    
+    # Get goal
+    response = client.get(f"/savings-goals/{goal_id}", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == goal_id
+    assert data["name"] == "New Car"
+
+def test_get_savings_goal_not_found(client: TestClient, auth_headers: dict):
+    """Test getting non-existent goal."""
+    response = client.get("/savings-goals/99999", headers=auth_headers)
+    assert response.status_code == 404
+
+def test_update_savings_goal(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test updating savings goal."""
+    # Create goal
+    create_response = client.post(
+        "/savings-goals/",
+        json={
+            "user_id": test_user["id"],
+            "name": "Old Name",
+            "target_amount": 5000.0,
+            "current_amount": 1000.0,
+            "deadline": "2025-12-31"
+        },
+        headers=auth_headers,
+    )
+    goal_id = create_response.json()["id"]
+    
+    # Update goal
+    response = client.put(
+        f"/savings-goals/{goal_id}",
+        json={
+            "user_id": test_user["id"],
+            "name": "Updated Name",
+            "target_amount": 7000.0,
+            "current_amount": 2000.0,
+            "deadline": "2026-06-30"
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "Updated Name"
+    assert data["target_amount"] == 7000.0
+
+def test_update_savings_goal_not_found(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test updating non-existent goal."""
+    response = client.put(
+        "/savings-goals/99999",
+        json={
+            "user_id": test_user["id"],
+            "name": "Test",
+            "target_amount": 5000.0,
+            "current_amount": 0.0,
+            "deadline": "2025-12-31"
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 404
+
+def test_delete_savings_goal(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test deleting savings goal."""
+    # Create goal
+    create_response = client.post(
+        "/savings-goals/",
+        json={
+            "user_id": test_user["id"],
+            "name": "To Delete",
+            "target_amount": 5000.0,
+            "current_amount": 0.0,
+            "deadline": "2025-12-31"
+        },
+        headers=auth_headers,
+    )
+    goal_id = create_response.json()["id"]
+    
+    # Delete goal
+    response = client.delete(f"/savings-goals/{goal_id}", headers=auth_headers)
+    assert response.status_code == 200
+    assert response.json()["goal_id"] == goal_id
+
+def test_delete_savings_goal_not_found(client: TestClient, auth_headers: dict):
+    """Test deleting non-existent goal."""
+    response = client.delete("/savings-goals/99999", headers=auth_headers)
+    assert response.status_code == 404
+
+def test_add_to_savings_goal(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test adding money to savings goal."""
+    # Create goal
+    create_response = client.post(
+        "/savings-goals/",
+        json={
+            "user_id": test_user["id"],
+            "name": "Test Goal",
+            "target_amount": 5000.0,
+            "current_amount": 1000.0,
+            "deadline": "2025-12-31"
+        },
+        headers=auth_headers,
+    )
+    goal_id = create_response.json()["id"]
+    
+    # Add money
+    response = client.post(
+        f"/savings-goals/{goal_id}/add",
+        json={"amount": 500.0},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["current_amount"] == 1500.0
+
+def test_add_to_savings_goal_not_found(client: TestClient, auth_headers: dict):
+    """Test adding to non-existent goal."""
+    response = client.post(
+        "/savings-goals/99999/add",
+        json={"amount": 500.0},
+        headers=auth_headers,
+    )
+    assert response.status_code == 404
+
+def test_add_to_inactive_savings_goal(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test adding to inactive goal."""
+    # Create and deactivate goal
+    create_response = client.post(
+        "/savings-goals/",
+        json={
+            "user_id": test_user["id"],
+            "name": "Inactive Goal",
+            "target_amount": 5000.0,
+            "current_amount": 1000.0,
+            "deadline": "2025-12-31"
+        },
+        headers=auth_headers,
+    )
+    goal_id = create_response.json()["id"]
+    client.delete(f"/savings-goals/{goal_id}", headers=auth_headers)
+    
+    # Try to add money
+    response = client.post(
+        f"/savings-goals/{goal_id}/add",
+        json={"amount": 500.0},
+        headers=auth_headers,
+    )
+    assert response.status_code == 400
+
+def test_withdraw_from_savings_goal(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test withdrawing money from savings goal."""
+    # Create goal with some money
+    create_response = client.post(
+        "/savings-goals/",
+        json={
+            "user_id": test_user["id"],
+            "name": "Test Goal",
+            "target_amount": 5000.0,
+            "current_amount": 2000.0,
+            "deadline": "2025-12-31"
+        },
+        headers=auth_headers,
+    )
+    goal_id = create_response.json()["id"]
+    
+    # Withdraw money
+    response = client.post(
+        f"/savings-goals/{goal_id}/withdraw",
+        json={"amount": 500.0},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["current_amount"] == 1500.0
+
+def test_withdraw_insufficient_funds(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test withdrawing more than available."""
+    # Create goal
+    create_response = client.post(
+        "/savings-goals/",
+        json={
+            "user_id": test_user["id"],
+            "name": "Test Goal",
+            "target_amount": 5000.0,
+            "current_amount": 500.0,
+            "deadline": "2025-12-31"
+        },
+        headers=auth_headers,
+    )
+    goal_id = create_response.json()["id"]
+    
+    # Try to withdraw more than available
+    response = client.post(
+        f"/savings-goals/{goal_id}/withdraw",
+        json={"amount": 1000.0},
+        headers=auth_headers,
+    )
+    assert response.status_code == 400
+    assert "insufficient" in response.json()["detail"].lower()
+
+def test_withdraw_from_inactive_goal(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test withdrawing from inactive goal."""
+    # Create and deactivate goal
+    create_response = client.post(
+        "/savings-goals/",
+        json={
+            "user_id": test_user["id"],
+            "name": "Inactive Goal",
+            "target_amount": 5000.0,
+            "current_amount": 2000.0,
+            "deadline": "2025-12-31"
+        },
+        headers=auth_headers,
+    )
+    goal_id = create_response.json()["id"]
+    client.delete(f"/savings-goals/{goal_id}", headers=auth_headers)
+    
+    # Try to withdraw
+    response = client.post(
+        f"/savings-goals/{goal_id}/withdraw",
+        json={"amount": 500.0},
+        headers=auth_headers,
+    )
+    assert response.status_code == 400
+
+def test_get_savings_goal_progress(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test getting goal progress details."""
+    # Create goal
+    create_response = client.post(
+        "/savings-goals/",
+        json={
+            "user_id": test_user["id"],
+            "name": "Test Goal",
+            "target_amount": 10000.0,
+            "current_amount": 5000.0,
+            "deadline": "2025-12-31"
+        },
+        headers=auth_headers,
+    )
+    goal_id = create_response.json()["id"]
+    
+    # Get progress
+    response = client.get(f"/savings-goals/{goal_id}/progress", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["goal_id"] == goal_id
+    assert data["progress_percentage"] == 50.0
+    assert "days_remaining" in data
+    assert "required_savings" in data
+    assert "status" in data
+
+# ============================================
+# ASSET TESTS
+# ============================================
+
+def test_create_asset_success(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test creating an asset."""
+    response = client.post(
+        "/assets/",
+        json={
+            "user_id": test_user["id"],
+            "name": "Honda Civic",
+            "asset_type": "vehicle",
+            "purchase_value": 25000.0,
+            "current_value": 18000.0,
+            "purchase_date": "2022-01-15",
+            "description": "2022 Honda Civic LX",
+            "location": "Garage"
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "Honda Civic"
+    assert data["asset_type"] == "vehicle"
+    assert data["purchase_value"] == 25000.0
+    assert data["current_value"] == 18000.0
+    assert "id" in data
+    assert "created_at" in data
+
+def test_create_asset_invalid_user(client: TestClient, auth_headers: dict):
+    """Test creating asset with invalid user."""
+    response = client.post(
+        "/assets/",
+        json={
+            "user_id": 99999,
+            "name": "Test Asset",
+            "asset_type": "other",
+            "purchase_value": 1000.0,
+            "current_value": 900.0,
+            "purchase_date": "2024-01-01"
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 404
+
+def test_create_asset_invalid_type(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test creating asset with invalid type."""
+    response = client.post(
+        "/assets/",
+        json={
+            "user_id": test_user["id"],
+            "name": "Test Asset",
+            "asset_type": "invalid_type",
+            "purchase_value": 1000.0,
+            "current_value": 900.0,
+            "purchase_date": "2024-01-01"
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 422
+
+def test_create_asset_invalid_date_format(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test creating asset with invalid date format."""
+    response = client.post(
+        "/assets/",
+        json={
+            "user_id": test_user["id"],
+            "name": "Test Asset",
+            "asset_type": "electronics",
+            "purchase_value": 1000.0,
+            "current_value": 900.0,
+            "purchase_date": "01/15/2024"
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 422
+
+def test_create_asset_inactive_user(client: TestClient, auth_headers: dict):
+    """Test creating asset for inactive user."""
+    # Create and deactivate user
+    user = client.post(
+        "/users/",
+        json={"name": "Inactive Asset User", "email": "inactiveasset@example.com", "role": "member"},
+        headers=auth_headers
+    ).json()
+    client.delete(f"/users/{user['id']}", headers=auth_headers)
+    
+    # Try to create asset
+    response = client.post(
+        "/assets/",
+        json={
+            "user_id": user["id"],
+            "name": "Test Asset",
+            "asset_type": "other",
+            "purchase_value": 1000.0,
+            "current_value": 900.0,
+            "purchase_date": "2024-01-01"
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 400
+
+def test_list_assets(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test listing assets."""
+    # Create an asset first
+    client.post(
+        "/assets/",
+        json={
+            "user_id": test_user["id"],
+            "name": "Laptop",
+            "asset_type": "electronics",
+            "purchase_value": 1500.0,
+            "current_value": 1000.0,
+            "purchase_date": "2023-06-15"
+        },
+        headers=auth_headers,
+    )
+    
+    response = client.get("/assets/", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) >= 1
+
+def test_list_assets_filtered_by_user(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test filtering assets by user."""
+    response = client.get(
+        "/assets/",
+        params={"user_id": test_user["id"]},
+        headers=auth_headers
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert all(a["user_id"] == test_user["id"] for a in data)
+
+def test_list_assets_filtered_by_type(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test filtering assets by type."""
+    # Create assets of different types
+    client.post(
+        "/assets/",
+        json={
+            "user_id": test_user["id"],
+            "name": "iPhone",
+            "asset_type": "electronics",
+            "purchase_value": 1000.0,
+            "current_value": 600.0,
+            "purchase_date": "2023-01-01"
+        },
+        headers=auth_headers,
+    )
+    
+    response = client.get(
+        "/assets/",
+        params={"asset_type": "electronics"},
+        headers=auth_headers
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert all(a["asset_type"] == "electronics" for a in data)
+
+def test_get_asset_by_id(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test getting specific asset."""
+    # Create asset
+    create_response = client.post(
+        "/assets/",
+        json={
+            "user_id": test_user["id"],
+            "name": "Gold Necklace",
+            "asset_type": "jewelry",
+            "purchase_value": 5000.0,
+            "current_value": 5500.0,
+            "purchase_date": "2020-05-10"
+        },
+        headers=auth_headers,
+    )
+    asset_id = create_response.json()["id"]
+    
+    # Get asset
+    response = client.get(f"/assets/{asset_id}", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == asset_id
+    assert data["name"] == "Gold Necklace"
+
+def test_get_asset_not_found(client: TestClient, auth_headers: dict):
+    """Test getting non-existent asset."""
+    response = client.get("/assets/99999", headers=auth_headers)
+    assert response.status_code == 404
+
+def test_update_asset(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test updating asset."""
+    # Create asset
+    create_response = client.post(
+        "/assets/",
+        json={
+            "user_id": test_user["id"],
+            "name": "Old Name",
+            "asset_type": "furniture",
+            "purchase_value": 2000.0,
+            "current_value": 1500.0,
+            "purchase_date": "2022-03-20"
+        },
+        headers=auth_headers,
+    )
+    asset_id = create_response.json()["id"]
+    
+    # Update asset
+    response = client.put(
+        f"/assets/{asset_id}",
+        json={
+            "user_id": test_user["id"],
+            "name": "Updated Name",
+            "asset_type": "furniture",
+            "purchase_value": 2000.0,
+            "current_value": 1200.0,
+            "purchase_date": "2022-03-20",
+            "description": "Updated description"
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "Updated Name"
+    assert data["current_value"] == 1200.0
+    assert data["description"] == "Updated description"
+
+def test_update_asset_not_found(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test updating non-existent asset."""
+    response = client.put(
+        "/assets/99999",
+        json={
+            "user_id": test_user["id"],
+            "name": "Test",
+            "asset_type": "other",
+            "purchase_value": 1000.0,
+            "current_value": 900.0,
+            "purchase_date": "2024-01-01"
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 404
+
+def test_delete_asset(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test deleting asset."""
+    # Create asset
+    create_response = client.post(
+        "/assets/",
+        json={
+            "user_id": test_user["id"],
+            "name": "To Delete",
+            "asset_type": "other",
+            "purchase_value": 1000.0,
+            "current_value": 900.0,
+            "purchase_date": "2024-01-01"
+        },
+        headers=auth_headers,
+    )
+    asset_id = create_response.json()["id"]
+    
+    # Delete asset
+    response = client.delete(f"/assets/{asset_id}", headers=auth_headers)
+    assert response.status_code == 200
+    assert response.json()["asset_id"] == asset_id
+
+def test_delete_asset_not_found(client: TestClient, auth_headers: dict):
+    """Test deleting non-existent asset."""
+    response = client.delete("/assets/99999", headers=auth_headers)
+    assert response.status_code == 404
+
+def test_update_asset_value(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test updating asset current value."""
+    # Create asset
+    create_response = client.post(
+        "/assets/",
+        json={
+            "user_id": test_user["id"],
+            "name": "Stock Portfolio",
+            "asset_type": "investment",
+            "purchase_value": 10000.0,
+            "current_value": 10000.0,
+            "purchase_date": "2024-01-01"
+        },
+        headers=auth_headers,
+    )
+    asset_id = create_response.json()["id"]
+    
+    # Update value
+    response = client.put(
+        f"/assets/{asset_id}/value",
+        json={"current_value": 12000.0},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["current_value"] == 12000.0
+    assert "updated_at" in data
+
+def test_update_asset_value_not_found(client: TestClient, auth_headers: dict):
+    """Test updating value of non-existent asset."""
+    response = client.put(
+        "/assets/99999/value",
+        json={"current_value": 5000.0},
+        headers=auth_headers,
+    )
+    assert response.status_code == 404
+
+def test_get_assets_summary(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test getting assets summary."""
+    # Create multiple assets
+    client.post(
+        "/assets/",
+        json={
+            "user_id": test_user["id"],
+            "name": "Car",
+            "asset_type": "vehicle",
+            "purchase_value": 20000.0,
+            "current_value": 15000.0,
+            "purchase_date": "2022-01-01"
+        },
+        headers=auth_headers,
+    )
+    
+    client.post(
+        "/assets/",
+        json={
+            "user_id": test_user["id"],
+            "name": "Laptop",
+            "asset_type": "electronics",
+            "purchase_value": 2000.0,
+            "current_value": 1000.0,
+            "purchase_date": "2023-06-01"
+        },
+        headers=auth_headers,
+    )
+    
+    response = client.get("/assets/summary", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert "total_assets" in data
+    assert "total_purchase_value" in data
+    assert "total_current_value" in data
+    assert "total_gain_loss" in data
+    assert "by_type" in data
+
+def test_get_assets_summary_by_user(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test getting assets summary filtered by user."""
+    response = client.get(
+        "/assets/summary",
+        params={"user_id": test_user["id"]},
+        headers=auth_headers
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "total_assets" in data
+
+def test_get_assets_summary_no_assets(client: TestClient, auth_headers: dict):
+    """Test summary with no assets."""
+    # Create new user with no assets
+    user = client.post(
+        "/users/",
+        json={"name": "No Assets User", "email": "noassets@example.com", "role": "member"},
+        headers=auth_headers
+    ).json()
+    
+    response = client.get(
+        "/assets/summary",
+        params={"user_id": user["id"]},
+        headers=auth_headers
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["message"] == "No assets found"
+
+def test_get_asset_depreciation(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test getting depreciation analysis."""
+    # Create assets with depreciation
+    client.post(
+        "/assets/",
+        json={
+            "user_id": test_user["id"],
+            "name": "MacBook Pro",
+            "asset_type": "electronics",
+            "purchase_value": 3000.0,
+            "current_value": 1500.0,
+            "purchase_date": "2022-01-01"
+        },
+        headers=auth_headers,
+    )
+    
+    response = client.get("/assets/depreciation", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert "total_assets" in data
+    assert "total_depreciation" in data
+    assert "assets" in data
+    
+    # Check depreciation details
+    if len(data["assets"]) > 0:
+        asset = data["assets"][0]
+        assert "depreciation" in asset
+        assert "depreciation_percentage" in asset
+        assert "age_years" in asset
+        assert "annual_depreciation" in asset
+
+def test_get_asset_depreciation_by_user(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test depreciation filtered by user."""
+    response = client.get(
+        "/assets/depreciation",
+        params={"user_id": test_user["id"]},
+        headers=auth_headers
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "assets" in data or "message" in data
+
+def test_get_asset_depreciation_no_assets(client: TestClient, auth_headers: dict):
+    """Test depreciation with no assets."""
+    # Create new user with no assets
+    user = client.post(
+        "/users/",
+        json={"name": "No Assets User 2", "email": "noassets2@example.com", "role": "member"},
+        headers=auth_headers
+    ).json()
+    
+    response = client.get(
+        "/assets/depreciation",
+        params={"user_id": user["id"]},
+        headers=auth_headers
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["message"] == "No assets found"
+
+def test_asset_value_gain(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test asset with value appreciation (gain)."""
+    # Create asset that appreciated
+    response = client.post(
+        "/assets/",
+        json={
+            "user_id": test_user["id"],
+            "name": "Gold Coins",
+            "asset_type": "jewelry",
+            "purchase_value": 5000.0,
+            "current_value": 6000.0,
+            "purchase_date": "2020-01-01"
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    
+    # Get summary to check gain
+    summary = client.get("/assets/summary", headers=auth_headers).json()
+    # Should show positive gain/loss
+    assert "total_gain_loss" in summary
+
+def test_multiple_asset_types(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test creating assets of different types."""
+    asset_types = [
+        ("House", "property", 300000.0, 350000.0),
+        ("Car", "vehicle", 25000.0, 18000.0),
+        ("Stocks", "investment", 10000.0, 12000.0),
+        ("TV", "electronics", 1000.0, 500.0),
+        ("Ring", "jewelry", 3000.0, 3200.0),
+        ("Sofa", "furniture", 2000.0, 800.0),
+        ("Painting", "art", 5000.0, 7000.0),
+    ]
+    
+    for name, asset_type, purchase, current in asset_types:
+        response = client.post(
+            "/assets/",
+            json={
+                "user_id": test_user["id"],
+                "name": name,
+                "asset_type": asset_type,
+                "purchase_value": purchase,
+                "current_value": current,
+                "purchase_date": "2023-01-01"
+            },
+            headers=auth_headers,
+        )
+        assert response.status_code == 200
+    
+    # Get summary
+    response = client.get("/assets/summary", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total_assets"] >= 7
+    assert len(data["by_type"]) >= 7
+
+def test_savings_goal_complete_workflow(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test complete savings goal workflow."""
+    # 1. Create goal
+    create_response = client.post(
+        "/savings-goals/",
+        json={
+            "user_id": test_user["id"],
+            "name": "Vacation",
+            "target_amount": 5000.0,
+            "current_amount": 0.0,
+            "deadline": "2025-12-31"
+        },
+        headers=auth_headers,
+    )
+    assert create_response.status_code == 200
+    goal_id = create_response.json()["id"]
+    
+    # 2. Add money multiple times
+    for amount in [500.0, 750.0, 1000.0]:
+        response = client.post(
+            f"/savings-goals/{goal_id}/add",
+            json={"amount": amount},
+            headers=auth_headers,
+        )
+        assert response.status_code == 200
+    
+    # 3. Check progress
+    response = client.get(f"/savings-goals/{goal_id}/progress", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["current_amount"] == 2250.0
+    assert data["progress_percentage"] == 45.0
+    
+    # 4. Withdraw some
+    response = client.post(
+        f"/savings-goals/{goal_id}/withdraw",
+        json={"amount": 250.0},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    
+    # 5. Final check
+    response = client.get(f"/savings-goals/{goal_id}", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["current_amount"] == 2000.0
+    
+    # 6. Delete goal
+    response = client.delete(f"/savings-goals/{goal_id}", headers=auth_headers)
+    assert response.status_code == 200
+
+def test_asset_complete_workflow(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test complete asset workflow."""
+    # 1. Create asset
+    create_response = client.post(
+        "/assets/",
+        json={
+            "user_id": test_user["id"],
+            "name": "Investment Portfolio",
+            "asset_type": "investment",
+            "purchase_value": 50000.0,
+            "current_value": 50000.0,
+            "purchase_date": "2024-01-01",
+            "description": "Mixed stocks and bonds"
+        },
+        headers=auth_headers,
+    )
+    assert create_response.status_code == 200
+    asset_id = create_response.json()["id"]
+    
+    # 2. Update value (market appreciation)
+    response = client.put(
+        f"/assets/{asset_id}/value",
+        json={"current_value": 55000.0},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    assert response.json()["current_value"] == 55000.0
+    
+    # 3. Get depreciation (should show appreciation)
+    response = client.get("/assets/depreciation", headers=auth_headers)
+    assert response.status_code == 200
+    
+    # 4. Get summary
+    response = client.get("/assets/summary", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total_gain_loss"] > 0  # Should be positive (gain)
+    
+    # 5. Update asset details
+    response = client.put(
+        f"/assets/{asset_id}",
+        json={
+            "user_id": test_user["id"],
+            "name": "Updated Portfolio",
+            "asset_type": "investment",
+            "purchase_value": 50000.0,
+            "current_value": 55000.0,
+            "purchase_date": "2024-01-01",
+            "description": "Diversified portfolio"
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    
+    # 6. Delete asset
+    response = client.delete(f"/assets/{asset_id}", headers=auth_headers)
+    assert response.status_code == 200
+    
 # ============================================
 # AUTHENTICATION TESTS
 # ============================================
@@ -1175,6 +2224,8 @@ def test_all_endpoints_require_auth(client: TestClient):
         ("GET", "/expenses/"),
         ("GET", "/credit-cards/"),
         ("GET", "/reports/monthly?month=2024-12"),
+        ("POST", "/savings-goals/"),
+        ("GET", "/assets/"),
     ]
 
     for method, endpoint in endpoints:

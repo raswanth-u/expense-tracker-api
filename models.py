@@ -167,3 +167,90 @@ class ExpenseCreate(SQLModel):
         if not isinstance(v, (int, float)):
             raise ValueError("amount must be a number")
         return float(v)
+
+# ============================================
+# SAVINGS GOAL MODELS
+# ============================================
+
+class SavingsGoal(SQLModel, table=True):
+    """Savings goal tracking model"""
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    name: str = Field(min_length=1, description="Goal name")
+    target_amount: float = Field(gt=0, description="Target amount to save")
+    current_amount: float = Field(ge=0, default=0.0, description="Current saved amount")
+    deadline: str = Field(index=True, description="Goal deadline (YYYY-MM-DD)")
+    description: str | None = None
+    is_active: bool = Field(default=True)
+    created_at: str
+
+class SavingsGoalCreate(SQLModel):
+    """Model for creating savings goals"""
+    user_id: int = Field(gt=0, description="User ID who owns the goal")
+    name: str = Field(min_length=1, description="Goal name")
+    target_amount: float = Field(gt=0, description="Target amount")
+    current_amount: float = Field(ge=0, default=0.0, description="Current amount")
+    deadline: str = Field(description="Deadline (YYYY-MM-DD)")
+    description: str | None = None
+    
+    @field_validator("deadline")
+    @classmethod
+    def validate_deadline(cls, v: str) -> str:
+        import re
+        if not re.match(r"^\d{4}-\d{2}-\d{2}$", v):
+            raise ValueError("Deadline must be in YYYY-MM-DD format")
+        return v
+
+class SavingsGoalUpdate(SQLModel):
+    """Model for updating savings goal amount"""
+    amount: float = Field(gt=0, description="Amount to add or withdraw")
+    
+# ============================================
+# ASSET MODELS
+# ============================================
+
+class Asset(SQLModel, table=True):
+    """Asset tracking model for property, vehicles, investments, etc."""
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    name: str = Field(min_length=1, description="Asset name")
+    asset_type: str = Field(index=True, description="Type of asset")
+    purchase_value: float = Field(gt=0, description="Purchase/initial value")
+    current_value: float = Field(gt=0, description="Current market value")
+    purchase_date: str = Field(description="Purchase date (YYYY-MM-DD)")
+    description: str | None = None
+    location: str | None = Field(default=None, description="Physical location or account")
+    is_active: bool = Field(default=True)
+    created_at: str
+    updated_at: str | None = None
+
+class AssetCreate(SQLModel):
+    """Model for creating assets"""
+    user_id: int = Field(gt=0, description="User ID who owns the asset")
+    name: str = Field(min_length=1, description="Asset name")
+    asset_type: str = Field(description="Type: property, vehicle, investment, electronics, jewelry, other")
+    purchase_value: float = Field(gt=0, description="Purchase value")
+    current_value: float = Field(gt=0, description="Current value")
+    purchase_date: str = Field(description="Purchase date (YYYY-MM-DD)")
+    description: str | None = None
+    location: str | None = None
+    
+    @field_validator("asset_type")
+    @classmethod
+    def validate_asset_type(cls, v: str) -> str:
+        valid_types = ["property", "vehicle", "investment", "electronics", "jewelry", "furniture", "art", "other"]
+        if v not in valid_types:
+            raise ValueError(f"Asset type must be one of: {', '.join(valid_types)}")
+        return v
+    
+    @field_validator("purchase_date")
+    @classmethod
+    def validate_purchase_date(cls, v: str) -> str:
+        import re
+        if not re.match(r"^\d{4}-\d{2}-\d{2}$", v):
+            raise ValueError("Purchase date must be in YYYY-MM-DD format")
+        return v
+
+class AssetValueUpdate(SQLModel):
+    """Model for updating asset current value"""
+    current_value: float = Field(gt=0, description="New current value")
