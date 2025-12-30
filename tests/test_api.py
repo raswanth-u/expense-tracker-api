@@ -747,7 +747,7 @@ def test_create_expense_cross_user_card_allowed(client: TestClient, auth_headers
         json={"name": "Family Member 2", "email": "family2@example.com", "role": "member"},
         headers=auth_headers
     ).json()
-    
+
     # User2 borrows User1's card - should work
     response = client.post(
         "/expenses/",
@@ -776,7 +776,7 @@ def test_update_expense_cross_user_card_allowed(client: TestClient, auth_headers
         json={"name": "Family Member 3", "email": "family3@example.com", "role": "member"},
         headers=auth_headers
     ).json()
-    
+
     # Update expense to use different user's card
     response = client.put(
         f"/expenses/{test_expense['id']}",
@@ -794,7 +794,7 @@ def test_update_expense_cross_user_card_allowed(client: TestClient, auth_headers
     data = response.json()
     assert data["user_id"] == user2["id"]
     assert data["credit_card_id"] == test_card["id"]
-    
+
 def test_create_expense_inactive_user(client: TestClient, auth_headers: dict):
     """Test creating expense for inactive user."""
     # Create and deactivate user
@@ -835,10 +835,10 @@ def test_create_expense_inactive_card(client: TestClient, auth_headers: dict, te
         },
         headers=auth_headers
     ).json()
-    
+
     # Deactivate card
     client.delete(f"/credit-cards/{card['id']}", headers=auth_headers)
-    
+
     # Try to create expense - should still fail for inactive card
     response = client.post(
         "/expenses/",
@@ -1333,7 +1333,7 @@ def test_list_savings_goals(client: TestClient, auth_headers: dict, test_user: d
     #     },
     #     headers=auth_headers,
     # )
-    
+
     response = client.get("/savings-goals/", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
@@ -1365,7 +1365,7 @@ def test_get_savings_goal_by_id(client: TestClient, auth_headers: dict, test_use
         headers=auth_headers,
     )
     goal_id = create_response.json()["id"]
-    
+
     # Get goal
     response = client.get(f"/savings-goals/{goal_id}", headers=auth_headers)
     assert response.status_code == 200
@@ -1393,7 +1393,7 @@ def test_update_savings_goal(client: TestClient, auth_headers: dict, test_user: 
         headers=auth_headers,
     )
     goal_id = create_response.json()["id"]
-    
+
     # Update goal
     response = client.put(
         f"/savings-goals/{goal_id}",
@@ -1441,7 +1441,7 @@ def test_delete_savings_goal(client: TestClient, auth_headers: dict, test_user: 
         headers=auth_headers,
     )
     goal_id = create_response.json()["id"]
-    
+
     # Delete goal
     response = client.delete(f"/savings-goals/{goal_id}", headers=auth_headers)
     assert response.status_code == 200
@@ -1467,7 +1467,7 @@ def test_add_to_savings_goal(client: TestClient, auth_headers: dict, test_user: 
         headers=auth_headers,
     )
     goal_id = create_response.json()["id"]
-    
+
     # Add money
     response = client.post(
         f"/savings-goals/{goal_id}/add",
@@ -1503,7 +1503,7 @@ def test_add_to_inactive_savings_goal(client: TestClient, auth_headers: dict, te
     )
     goal_id = create_response.json()["id"]
     client.delete(f"/savings-goals/{goal_id}", headers=auth_headers)
-    
+
     # Try to add money
     response = client.post(
         f"/savings-goals/{goal_id}/add",
@@ -1527,7 +1527,7 @@ def test_withdraw_from_savings_goal(client: TestClient, auth_headers: dict, test
         headers=auth_headers,
     )
     goal_id = create_response.json()["id"]
-    
+
     # Withdraw money
     response = client.post(
         f"/savings-goals/{goal_id}/withdraw",
@@ -1553,7 +1553,7 @@ def test_withdraw_insufficient_funds(client: TestClient, auth_headers: dict, tes
         headers=auth_headers,
     )
     goal_id = create_response.json()["id"]
-    
+
     # Try to withdraw more than available
     response = client.post(
         f"/savings-goals/{goal_id}/withdraw",
@@ -1579,7 +1579,7 @@ def test_withdraw_from_inactive_goal(client: TestClient, auth_headers: dict, tes
     )
     goal_id = create_response.json()["id"]
     client.delete(f"/savings-goals/{goal_id}", headers=auth_headers)
-    
+
     # Try to withdraw
     response = client.post(
         f"/savings-goals/{goal_id}/withdraw",
@@ -1603,7 +1603,7 @@ def test_get_savings_goal_progress(client: TestClient, auth_headers: dict, test_
         headers=auth_headers,
     )
     goal_id = create_response.json()["id"]
-    
+
     # Get progress
     response = client.get(f"/savings-goals/{goal_id}/progress", headers=auth_headers)
     assert response.status_code == 200
@@ -1700,7 +1700,7 @@ def test_create_asset_inactive_user(client: TestClient, auth_headers: dict):
         headers=auth_headers
     ).json()
     client.delete(f"/users/{user['id']}", headers=auth_headers)
-    
+
     # Try to create asset
     response = client.post(
         "/assets/",
@@ -1731,7 +1731,7 @@ def test_list_assets(client: TestClient, auth_headers: dict, test_user: dict):
         },
         headers=auth_headers,
     )
-    
+
     response = client.get("/assets/", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
@@ -1763,7 +1763,7 @@ def test_list_assets_filtered_by_type(client: TestClient, auth_headers: dict, te
         },
         headers=auth_headers,
     )
-    
+
     response = client.get(
         "/assets/",
         params={"asset_type": "electronics"},
@@ -1789,7 +1789,7 @@ def test_get_asset_by_id(client: TestClient, auth_headers: dict, test_user: dict
         headers=auth_headers,
     )
     asset_id = create_response.json()["id"]
-    
+
     # Get asset
     response = client.get(f"/assets/{asset_id}", headers=auth_headers)
     assert response.status_code == 200
@@ -1818,7 +1818,7 @@ def test_update_asset(client: TestClient, auth_headers: dict, test_user: dict):
         headers=auth_headers,
     )
     asset_id = create_response.json()["id"]
-    
+
     # Update asset
     response = client.put(
         f"/assets/{asset_id}",
@@ -1871,7 +1871,7 @@ def test_delete_asset(client: TestClient, auth_headers: dict, test_user: dict):
         headers=auth_headers,
     )
     asset_id = create_response.json()["id"]
-    
+
     # Delete asset
     response = client.delete(f"/assets/{asset_id}", headers=auth_headers)
     assert response.status_code == 200
@@ -1898,7 +1898,7 @@ def test_update_asset_value(client: TestClient, auth_headers: dict, test_user: d
         headers=auth_headers,
     )
     asset_id = create_response.json()["id"]
-    
+
     # Update value
     response = client.put(
         f"/assets/{asset_id}/value",
@@ -1934,7 +1934,7 @@ def test_get_assets_summary(client: TestClient, auth_headers: dict, test_user: d
         },
         headers=auth_headers,
     )
-    
+
     client.post(
         "/assets/",
         json={
@@ -1947,7 +1947,7 @@ def test_get_assets_summary(client: TestClient, auth_headers: dict, test_user: d
         },
         headers=auth_headers,
     )
-    
+
     response = client.get("/assets/summary", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
@@ -1976,7 +1976,7 @@ def test_get_assets_summary_no_assets(client: TestClient, auth_headers: dict):
         json={"name": "No Assets User", "email": "noassets@example.com", "role": "member"},
         headers=auth_headers
     ).json()
-    
+
     response = client.get(
         "/assets/summary",
         params={"user_id": user["id"]},
@@ -2001,14 +2001,14 @@ def test_get_asset_depreciation(client: TestClient, auth_headers: dict, test_use
         },
         headers=auth_headers,
     )
-    
+
     response = client.get("/assets/depreciation", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
     assert "total_assets" in data
     assert "total_depreciation" in data
     assert "assets" in data
-    
+
     # Check depreciation details
     if len(data["assets"]) > 0:
         asset = data["assets"][0]
@@ -2036,7 +2036,7 @@ def test_get_asset_depreciation_no_assets(client: TestClient, auth_headers: dict
         json={"name": "No Assets User 2", "email": "noassets2@example.com", "role": "member"},
         headers=auth_headers
     ).json()
-    
+
     response = client.get(
         "/assets/depreciation",
         params={"user_id": user["id"]},
@@ -2062,8 +2062,8 @@ def test_asset_value_gain(client: TestClient, auth_headers: dict, test_user: dic
         headers=auth_headers,
     )
     assert response.status_code == 200
-    data = response.json()
-    
+    response.json()
+
     # Get summary to check gain
     summary = client.get("/assets/summary", headers=auth_headers).json()
     # Should show positive gain/loss
@@ -2080,7 +2080,7 @@ def test_multiple_asset_types(client: TestClient, auth_headers: dict, test_user:
         ("Sofa", "furniture", 2000.0, 800.0),
         ("Painting", "art", 5000.0, 7000.0),
     ]
-    
+
     for name, asset_type, purchase, current in asset_types:
         response = client.post(
             "/assets/",
@@ -2095,7 +2095,7 @@ def test_multiple_asset_types(client: TestClient, auth_headers: dict, test_user:
             headers=auth_headers,
         )
         assert response.status_code == 200
-    
+
     # Get summary
     response = client.get("/assets/summary", headers=auth_headers)
     assert response.status_code == 200
@@ -2119,7 +2119,7 @@ def test_savings_goal_complete_workflow(client: TestClient, auth_headers: dict, 
     )
     assert create_response.status_code == 200
     goal_id = create_response.json()["id"]
-    
+
     # 2. Add money multiple times
     for amount in [500.0, 750.0, 1000.0]:
         response = client.post(
@@ -2128,14 +2128,14 @@ def test_savings_goal_complete_workflow(client: TestClient, auth_headers: dict, 
             headers=auth_headers,
         )
         assert response.status_code == 200
-    
+
     # 3. Check progress
     response = client.get(f"/savings-goals/{goal_id}/progress", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
     assert data["current_amount"] == 2250.0
     assert data["progress_percentage"] == 45.0
-    
+
     # 4. Withdraw some
     response = client.post(
         f"/savings-goals/{goal_id}/withdraw",
@@ -2143,13 +2143,13 @@ def test_savings_goal_complete_workflow(client: TestClient, auth_headers: dict, 
         headers=auth_headers,
     )
     assert response.status_code == 200
-    
+
     # 5. Final check
     response = client.get(f"/savings-goals/{goal_id}", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
     assert data["current_amount"] == 2000.0
-    
+
     # 6. Delete goal
     response = client.delete(f"/savings-goals/{goal_id}", headers=auth_headers)
     assert response.status_code == 200
@@ -2172,7 +2172,7 @@ def test_asset_complete_workflow(client: TestClient, auth_headers: dict, test_us
     )
     assert create_response.status_code == 200
     asset_id = create_response.json()["id"]
-    
+
     # 2. Update value (market appreciation)
     response = client.put(
         f"/assets/{asset_id}/value",
@@ -2181,17 +2181,17 @@ def test_asset_complete_workflow(client: TestClient, auth_headers: dict, test_us
     )
     assert response.status_code == 200
     assert response.json()["current_value"] == 55000.0
-    
+
     # 3. Get depreciation (should show appreciation)
     response = client.get("/assets/depreciation", headers=auth_headers)
     assert response.status_code == 200
-    
+
     # 4. Get summary
     response = client.get("/assets/summary", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
     assert data["total_gain_loss"] > 0  # Should be positive (gain)
-    
+
     # 5. Update asset details
     response = client.put(
         f"/assets/{asset_id}",
@@ -2207,11 +2207,11 @@ def test_asset_complete_workflow(client: TestClient, auth_headers: dict, test_us
         headers=auth_headers,
     )
     assert response.status_code == 200
-    
+
     # 6. Delete asset
     response = client.delete(f"/assets/{asset_id}", headers=auth_headers)
     assert response.status_code == 200
-    
+
 # ============================================
 # AUTHENTICATION TESTS
 # ============================================

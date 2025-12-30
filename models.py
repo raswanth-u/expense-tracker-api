@@ -192,7 +192,7 @@ class SavingsGoalCreate(SQLModel):
     current_amount: float = Field(ge=0, default=0.0, description="Current amount")
     deadline: str = Field(description="Deadline (YYYY-MM-DD)")
     description: str | None = None
-    
+
     @field_validator("deadline")
     @classmethod
     def validate_deadline(cls, v: str) -> str:
@@ -204,7 +204,7 @@ class SavingsGoalCreate(SQLModel):
 class SavingsGoalUpdate(SQLModel):
     """Model for updating savings goal amount"""
     amount: float = Field(gt=0, description="Amount to add or withdraw")
-    
+
 # ============================================
 # ASSET MODELS
 # ============================================
@@ -234,7 +234,7 @@ class AssetCreate(SQLModel):
     purchase_date: str = Field(description="Purchase date (YYYY-MM-DD)")
     description: str | None = None
     location: str | None = None
-    
+
     @field_validator("asset_type")
     @classmethod
     def validate_asset_type(cls, v: str) -> str:
@@ -242,7 +242,7 @@ class AssetCreate(SQLModel):
         if v not in valid_types:
             raise ValueError(f"Asset type must be one of: {', '.join(valid_types)}")
         return v
-    
+
     @field_validator("purchase_date")
     @classmethod
     def validate_purchase_date(cls, v: str) -> str:
