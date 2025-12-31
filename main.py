@@ -25,6 +25,8 @@ from models import (
     SavingsGoalUpdate,
     User,
     UserCreate,
+    RecurringExpenseTemplate,
+    RecurringExpenseTemplateCreate,
 )
 
 # Load environment variables after imports
@@ -2235,3 +2237,432 @@ def update_asset_value(
 
     logger.info(f"Updated asset value ID: {asset_id} from ${old_value:.2f} to ${value_update.current_value:.2f}")
     return asset
+
+# ============================================
+# RECURRING EXPENSE ENDPOINTS
+# ============================================
+
+@app.post("/recurring-expenses/", response_model=RecurringExpenseTemplate)
+def create_recurring_template(
+    template: RecurringExpenseTemplateCreate,
+    session: Session = Depends(get_session),
+    api_key: str = Depends(verify_api_key),
+):
+    """Create a recurring expense template"""
+    # Validate user exists
+    user = session.get(User, template.user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail=f"User ID {template.user_id} not found")
+    if not user.is_active:
+        raise HTTPException(status_code=400, detail="User is inactive")
+    
+    # Validate credit card if provided
+    if template.credit_card_id:
+        card = session.get(CreditCard, template.credit_card_id)
+        if not card:
+            raise HTTPException(status_code=404, detail="Credit card not found")
+        if not card.is_active:
+            raise HTTPException(status_code=400, detail="Credit card is inactive")
+    
+    # Calculate next occurrence
+    next_occurrence = calculate_next_occurrence(
+        template.start_date,
+        template.frequency,
+        template.interval,
+        template.day_of_week,
+        template.day_of_month,
+        template.month_of_year
+    )
+    
+    # Create template
+    db_template = RecurringExpenseTemplate(
+        **template.model_dump(),
+        next_occurrence=next_occurrence,
+        created_at=datetime.now().isoformat()
+    )
+    session.add(db_template)
+    session.commit()
+    session.refresh(db_template)
+    
+    logger.info(f"Created recurring template: {db_template.description or db_template.category} for user {template.user_id}")
+    return db_template
+
+@app.get("/recurring-expenses/", response_model=list[RecurringExpenseTemplate])
+def list_recurring_templates(
+    user_id: int | None = None,
+    is_active: bool = True,
+    frequency: str | None = None,
+    session: Session = Depends(get_session),
+    api_key: str = Depends(verify_api_key),
+):
+    """List recurring expense templates"""
+    query = select(RecurringExpenseTemplate).where(RecurringExpenseTemplate.is_active == is_active)
+    
+    if user_id is not None:
+        query = query.where(RecurringExpenseTemplate.user_id == user_id)
+    
+    if frequency:
+        query = query.where(RecurringExpenseTemplate.frequency == frequency)
+    
+    templates = session.exec(query.order_by(RecurringExpenseTemplate.next_occurrence)).all()
+    logger.info(f"Retrieved {len(templates)} recurring templates")
+    return list(templates)
+
+@app.get("/recurring-expenses/{template_id}", response_model=RecurringExpenseTemplate)
+def get_recurring_template(
+    template_id: int,
+    session: Session = Depends(get_session),
+    api_key: str = Depends(verify_api_key),
+):
+    """Get specific recurring template"""
+    template = session.get(RecurringExpenseTemplate, template_id)
+    if not template:
+        raise HTTPException(status_code=404, detail="Recurring template not found")
+    return template
+
+@app.put("/recurring-expenses/{template_id}", response_model=RecurringExpenseTemplate)
+def update_recurring_template(
+    template_id: int,
+    template_data: RecurringExpenseTemplateCreate,
+    session: Session = Depends(get_session),
+    api_key: str = Depends(verify_api_key),
+):
+    """Update recurring expense template"""
+    template = session.get(RecurringExpenseTemplate, template_id)
+    if not template:
+        raise HTTPException(status_code=404, detail="Recurring template not found")
+    
+    # Validate user
+    user = session.get(User, template_data.user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Validate credit card if provided
+    if template_data.credit_card_id:
+        card = session.get(CreditCard, template_data.credit_card_id)
+        if not card:
+            raise HTTPException(status_code=404, detail="Credit card not found")
+    
+    # Update fields
+    template.user_id = template_data.user_id
+    template.amount = template_data.amount
+    template.category = template_data.category
+    template.description = template_data.description
+    template.payment_method = template_data.payment_method
+    template.credit_card_id = template_data.credit_card_id
+    template.frequency = template_data.frequency
+    template.interval = template_data.interval
+    template.day_of_week = template_data.day_of_week
+    template.day_of_month = template_data.day_of_month
+    template.month_of_year = template_data.month_of_year
+    template.start_date = template_data.start_date
+    template.end_date = template_data.end_date
+    template.tags = template_data.tags
+    
+    # Recalculate next occurrence
+    template.next_occurrence = calculate_next_occurrence(
+        template.start_date,
+        template.frequency,
+        template.interval,
+        template.day_of_week,
+        template.day_of_month,
+        template.month_of_year
+    )
+    
+    session.add(template)
+    session.commit()
+    session.refresh(template)
+    
+    logger.info(f"Updated recurring template ID: {template_id}")
+    return template
+
+@app.delete("/recurring-expenses/{template_id}")
+def delete_recurring_template(
+    template_id: int,
+    session: Session = Depends(get_session),
+    api_key: str = Depends(verify_api_key),
+):
+    """Deactivate recurring expense template"""
+    template = session.get(RecurringExpenseTemplate, template_id)
+    if not template:
+        raise HTTPException(status_code=404, detail="Recurring template not found")
+    
+    template.is_active = False
+    session.add(template)
+    session.commit()
+    
+    logger.info(f"Deactivated recurring template ID: {template_id}")
+    return {"message": "Recurring template deactivated", "template_id": template_id}
+
+@app.post("/recurring-expenses/{template_id}/generate", response_model=Expense)
+def generate_expense_from_template(
+    template_id: int,
+    session: Session = Depends(get_session),
+    api_key: str = Depends(verify_api_key),
+):
+    """Manually generate an expense from a recurring template"""
+    template = session.get(RecurringExpenseTemplate, template_id)
+    if not template:
+        raise HTTPException(status_code=404, detail="Recurring template not found")
+    
+    if not template.is_active:
+        raise HTTPException(status_code=400, detail="Template is inactive")
+    
+    # Create expense from template
+    expense = Expense(
+        user_id=template.user_id,
+        amount=template.amount,
+        category=template.category,
+        description=template.description,
+        date=datetime.now().strftime("%Y-%m-%d"),
+        payment_method=template.payment_method,
+        credit_card_id=template.credit_card_id,
+        is_recurring=True,
+        tags=template.tags
+    )
+    
+    session.add(expense)
+    
+    # Update template
+    template.last_generated = datetime.now().strftime("%Y-%m-%d")
+    template.next_occurrence = calculate_next_occurrence(
+        template.next_occurrence,
+        template.frequency,
+        template.interval,
+        template.day_of_week,
+        template.day_of_month,
+        template.month_of_year
+    )
+    session.add(template)
+    
+    session.commit()
+    session.refresh(expense)
+    
+    logger.info(f"Generated expense from template ID: {template_id}")
+    return expense
+
+@app.get("/recurring-expenses/upcoming")
+def get_upcoming_recurring_expenses(
+    days: int = 7,
+    user_id: int | None = None,
+    session: Session = Depends(get_session),
+    api_key: str = Depends(verify_api_key),
+):
+    """Get upcoming recurring expenses within specified days"""
+    from datetime import datetime, timedelta
+    
+    today = datetime.now().date()
+    end_date = today + timedelta(days=days)
+    
+    query = select(RecurringExpenseTemplate).where(
+        RecurringExpenseTemplate.is_active == True
+    )
+    
+    if user_id is not None:
+        query = query.where(RecurringExpenseTemplate.user_id == user_id)
+    
+    templates = session.exec(query).all()
+    
+    upcoming = []
+    for template in templates:
+        try:
+            next_date = datetime.strptime(template.next_occurrence, "%Y-%m-%d").date()
+            if today <= next_date <= end_date:
+                days_until = (next_date - today).days
+                upcoming.append({
+                    "template_id": template.id,
+                    "user_id": template.user_id,
+                    "amount": template.amount,
+                    "category": template.category,
+                    "description": template.description,
+                    "payment_method": template.payment_method,
+                    "frequency": template.frequency,
+                    "next_occurrence": template.next_occurrence,
+                    "days_until": days_until,
+                    "status": "today" if days_until == 0 else "upcoming"
+                })
+        except ValueError:
+            continue
+    
+    # Sort by next occurrence
+    upcoming.sort(key=lambda x: x["days_until"])
+    
+    return {
+        "period": f"next {days} days",
+        "user_id": user_id,
+        "count": len(upcoming),
+        "upcoming_expenses": upcoming
+    }
+
+@app.post("/recurring-expenses/{template_id}/skip")
+def skip_next_occurrence(
+    template_id: int,
+    session: Session = Depends(get_session),
+    api_key: str = Depends(verify_api_key),
+):
+    """Skip the next occurrence of a recurring expense"""
+    template = session.get(RecurringExpenseTemplate, template_id)
+    if not template:
+        raise HTTPException(status_code=404, detail="Recurring template not found")
+    
+    if not template.is_active:
+        raise HTTPException(status_code=400, detail="Template is inactive")
+    
+    old_next = template.next_occurrence
+    
+    # Calculate the occurrence after next
+    template.next_occurrence = calculate_next_occurrence(
+        template.next_occurrence,
+        template.frequency,
+        template.interval,
+        template.day_of_week,
+        template.day_of_month,
+        template.month_of_year
+    )
+    
+    session.add(template)
+    session.commit()
+    session.refresh(template)
+    
+    logger.info(f"Skipped occurrence for template ID: {template_id} from {old_next} to {template.next_occurrence}")
+    return {
+        "message": "Next occurrence skipped",
+        "template_id": template_id,
+        "old_next_occurrence": old_next,
+        "new_next_occurrence": template.next_occurrence
+    }
+
+@app.post("/recurring-expenses/generate-due")
+def generate_due_recurring_expenses(
+    session: Session = Depends(get_session),
+    api_key: str = Depends(verify_api_key),
+):
+    """Generate all recurring expenses that are due (next_occurrence <= today)"""
+    from datetime import datetime
+    
+    today = datetime.now().strftime("%Y-%m-%d")
+    
+    # Find all templates that are due
+    templates = session.exec(
+        select(RecurringExpenseTemplate).where(
+            RecurringExpenseTemplate.is_active == True,
+            RecurringExpenseTemplate.next_occurrence <= today
+        )
+    ).all()
+    
+    generated = []
+    errors = []
+    
+    for template in templates:
+        try:
+            # Create expense
+            expense = Expense(
+                user_id=template.user_id,
+                amount=template.amount,
+                category=template.category,
+                description=template.description,
+                date=template.next_occurrence,
+                payment_method=template.payment_method,
+                credit_card_id=template.credit_card_id,
+                is_recurring=True,
+                tags=template.tags
+            )
+            
+            session.add(expense)
+            
+            # Update template
+            template.last_generated = template.next_occurrence
+            template.next_occurrence = calculate_next_occurrence(
+                template.next_occurrence,
+                template.frequency,
+                template.interval,
+                template.day_of_week,
+                template.day_of_month,
+                template.month_of_year
+            )
+            session.add(template)
+            
+            generated.append({
+                "template_id": template.id,
+                "expense_id": None,  # Will be set after commit
+                "amount": template.amount,
+                "category": template.category,
+                "date": expense.date
+            })
+            
+        except Exception as e:
+            errors.append({
+                "template_id": template.id,
+                "error": str(e)
+            })
+    
+    session.commit()
+    
+    logger.info(f"Generated {len(generated)} recurring expenses, {len(errors)} errors")
+    return {
+        "generated_count": len(generated),
+        "error_count": len(errors),
+        "generated": generated,
+        "errors": errors
+    }
+
+# Helper function for calculating next occurrence
+def calculate_next_occurrence(
+    current_date: str,
+    frequency: str,
+    interval: int,
+    day_of_week: int | None,
+    day_of_month: int | None,
+    month_of_year: int | None
+) -> str:
+    """Calculate the next occurrence date based on frequency and parameters"""
+    from datetime import datetime, timedelta
+    from dateutil.relativedelta import relativedelta
+    
+    try:
+        current = datetime.strptime(current_date, "%Y-%m-%d")
+    except ValueError:
+        return datetime.now().strftime("%Y-%m-%d")
+    
+    if frequency == "daily":
+        next_date = current + timedelta(days=interval)
+    
+    elif frequency == "weekly":
+        # Add weeks
+        next_date = current + timedelta(weeks=interval)
+        # Adjust to specific day of week if provided
+        if day_of_week is not None:
+            days_ahead = day_of_week - next_date.weekday()
+            if days_ahead <= 0:
+                days_ahead += 7
+            next_date = next_date + timedelta(days=days_ahead)
+    
+    elif frequency == "monthly":
+        next_date = current + relativedelta(months=interval)
+        # Adjust to specific day of month if provided
+        if day_of_month is not None:
+            try:
+                next_date = next_date.replace(day=day_of_month)
+            except ValueError:
+                # Handle invalid dates (e.g., Feb 31)
+                next_date = next_date.replace(day=1) + relativedelta(months=1) - timedelta(days=1)
+    
+    elif frequency == "yearly":
+        next_date = current + relativedelta(years=interval)
+        # Adjust to specific month and day if provided
+        if month_of_year is not None:
+            next_date = next_date.replace(month=month_of_year)
+        if day_of_month is not None:
+            try:
+                next_date = next_date.replace(day=day_of_month)
+            except ValueError:
+                next_date = next_date.replace(day=1) + relativedelta(months=1) - timedelta(days=1)
+    
+    elif frequency == "custom":
+        # For custom, just add interval days
+        next_date = current + timedelta(days=interval)
+    
+    else:
+        next_date = current + timedelta(days=1)
+    
+    return next_date.strftime("%Y-%m-%d")

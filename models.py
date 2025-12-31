@@ -254,3 +254,70 @@ class AssetCreate(SQLModel):
 class AssetValueUpdate(SQLModel):
     """Model for updating asset current value"""
     current_value: float = Field(gt=0, description="New current value")
+    
+# ============================================
+# RECURRING EXPENSE MODELS
+# ============================================
+
+class RecurringExpenseTemplate(SQLModel, table=True):
+    """Template for recurring expenses"""
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    amount: float = Field(gt=0)
+    category: str = Field(index=True, min_length=1)
+    description: str | None = None
+    payment_method: str
+    credit_card_id: int | None = Field(default=None, foreign_key="creditcard.id")
+    frequency: str = Field(index=True)  # "daily", "weekly", "monthly", "yearly", "custom"
+    interval: int = Field(default=1, ge=1)  # For custom frequency (e.g., every 2 weeks)
+    day_of_week: int | None = Field(default=None, ge=0, le=6)  # 0=Monday, 6=Sunday (for weekly)
+    day_of_month: int | None = Field(default=None, ge=1, le=31)  # For monthly/yearly
+    month_of_year: int | None = Field(default=None, ge=1, le=12)  # For yearly
+    start_date: str = Field(index=True)
+    end_date: str | None = None  # None = indefinite
+    next_occurrence: str = Field(index=True)
+    last_generated: str | None = None
+    is_active: bool = Field(default=True)
+    tags: str | None = None
+    created_at: str
+
+class RecurringExpenseTemplateCreate(SQLModel):
+    """Model for creating recurring expense templates"""
+    user_id: int = Field(gt=0)
+    amount: float = Field(gt=0)
+    category: str = Field(min_length=1)
+    description: str | None = None
+    payment_method: str
+    credit_card_id: int | None = None
+    frequency: str  # "daily", "weekly", "monthly", "yearly", "custom"
+    interval: int = Field(default=1, ge=1)
+    day_of_week: int | None = None
+    day_of_month: int | None = None
+    month_of_year: int | None = None
+    start_date: str
+    end_date: str | None = None
+    tags: str | None = None
+    
+    @field_validator("frequency")
+    @classmethod
+    def validate_frequency(cls, v: str) -> str:
+        valid = ["daily", "weekly", "monthly", "yearly", "custom"]
+        if v not in valid:
+            raise ValueError(f"Frequency must be one of: {', '.join(valid)}")
+        return v
+    
+    @field_validator("payment_method")
+    @classmethod
+    def validate_payment_method(cls, v: str) -> str:
+        valid_methods = ["cash", "debit_card", "credit_card", "upi"]
+        if v not in valid_methods:
+            raise ValueError(f"Payment method must be one of: {', '.join(valid_methods)}")
+        return v
+    
+    @field_validator("start_date")
+    @classmethod
+    def validate_start_date(cls, v: str) -> str:
+        import re
+        if not re.match(r"^\d{4}-\d{2}-\d{2}$", v):
+            raise ValueError("Start date must be in YYYY-MM-DD format")
+        return v
