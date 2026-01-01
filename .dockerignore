@@ -1,1 +1,43 @@
+# Environment files (secrets should be passed as env vars)
+.env
+.env.local
+.env.*.local
+
+# Version control
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+venv/
+env/
+*.egg
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Testing
+.coverage
+coverage.xml
+htmlcov/
+
+# Database (persistent volume)
 tracker-data/
+
+# Development
+.env.example
+docker-compose.yaml
+tests/
+postgres_test.sh
+
+# Documentation (optional)
+*.md
