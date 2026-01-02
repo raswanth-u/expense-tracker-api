@@ -1,9 +1,24 @@
+# =============================================================================
+# DEVELOPMENT ENVIRONMENT
+# =============================================================================
+# Network: expenses-app-v1_default (automatically created)
+# 
+# Port Mapping Strategy (to avoid conflicts with production):
+#   - PostgreSQL: Host 5433 → Container 5432
+#   - HTTP:       Host 8081 → Container 80
+#   - HTTPS:      Host 8443 → Container 443
+#
+# Access URLs:
+#   - API: https://localhost:8443/api/
+#   - Health: https://localhost:8443/health
+# =============================================================================
+
 services:
   db:
     image: postgres:15-alpine
     restart: always
     ports:
-      - "5432:5432"
+      - "5433:5432"  # DEV: Use 5433 to avoid conflict with prod (5432)
     env_file:
       - .env
     volumes:
@@ -21,6 +36,8 @@ services:
         condition: service_healthy
     env_file:
       - .env
+    environment:
+      - RUN_MIGRATIONS=true  # Auto-run migrations in dev
     logging:
       driver: "json-file"
       options:
@@ -30,15 +47,10 @@ services:
   nginx:
     image: nginx:alpine
     ports:
-      - "8080:80"
-      - "443:443"
+      - "8081:80"    # DEV: Use 8081 to avoid conflict with prod (8080)
+      - "8443:443"   # DEV: Use 8443 to avoid conflict with prod (443)
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/ssl:/etc/nginx/ssl:ro
     depends_on:
       - api
-
-
-
-
-
