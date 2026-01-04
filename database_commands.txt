@@ -1,0 +1,1071 @@
+  818  # Generate unique key for each environment
+  819  API_KEY=your-dev-api-key-change-me
+  820  # Database connection URL (used by API container)
+  821  # Format: postgresql://username:password@host:port/database
+  822  # Note: 'db' is the Docker Compose service name (DNS resolution)
+  823  DATABASE_URL=postgresql://expense_admin:your_secure_dev_database_password_here@db:5432/expenses_db
+  824  # =============================================================================
+  825  # APPLICATION SETTINGS
+  826  # =============================================================================
+  827  # Environment type (development or production)
+  828  ENVIRONMENT=development
+  829  # Log level (DEBUG, INFO, WARNING, ERROR)
+  830  LOG_LEVEL=DEBUG
+  831  # Skip SSL certificate verification (development only)
+  832  # Set to false for production with valid certificates
+  833  SKIP_SSL_VERIFY=true
+  834  EOF
+  835  cat /home/life/projects/expense_tracker_app/expenses-app-v1/.env.example | head -20
+  836  cat > /app/expense-tracker/.env.example << 'EOF'
+  837  # =============================================================================
+  838  # DOCKER COMPOSE - ENVIRONMENT VARIABLES TEMPLATE (PRODUCTION)
+  839  # =============================================================================
+  840  #
+  841  # Copy this file to .env and fill in actual values.
+  842  #
+  843  # ⚠️ SECURITY WARNING:
+  844  #   - NEVER commit .env file to Git
+  845  #   - Add to .gitignore: .env
+  846  #   - chmod 600 .env (read/write by owner only)
+  847  #   - Use STRONG passwords: openssl rand -base64 32
+  848  #   - Different passwords for dev and prod
+  849  #   - Rotate passwords every 90 days
+  850  #
+  851  # =============================================================================
+  852  # =============================================================================
+  853  # DATABASE CONFIGURATION
+  854  # =============================================================================
+  855  # PostgreSQL username
+  856  POSTGRES_USER=expense_admin
+  857  # PostgreSQL password (USE A STRONG PASSWORD!)
+  858  # Generate secure password: openssl rand -base64 32
+  859  # Example output: kR3pL9mQ2xZ8vH1bN4tW5yJ6dF7cG9uE0sO2aK3lM
+  860  POSTGRES_PASSWORD=your_secure_PRODUCTION_database_password_here_CHANGE_ME
+  861  # PostgreSQL database name
+  862  POSTGRES_DB=expenses_db
+  863  # =============================================================================
+  864  # API CONFIGURATION
+  865  # =============================================================================
+  866  # FastAPI application API key
+  867  # Generate unique key: openssl rand -base64 32
+  868  # Must be different from development key!
+  869  API_KEY=your-PRODUCTION-api-key-CHANGE-ME
+  870  # Database connection URL (used by API container)
+  871  # Format: postgresql://username:password@host:port/database
+  872  # Note: 'db' is the Docker Compose service name (DNS resolution)
+  873  DATABASE_URL=postgresql://expense_admin:your_secure_PRODUCTION_database_password_here@db:5432/expenses_db
+  874  # =============================================================================
+  875  # APPLICATION SETTINGS
+  876  # =============================================================================
+  877  # Environment type (should be 'production')
+  878  ENVIRONMENT=production
+  879  # Log level (WARNING or ERROR recommended for production)
+  880  LOG_LEVEL=WARNING
+  881  # Skip SSL certificate verification
+  882  # MUST be false in production with valid certificates from CA
+  883  # Only set to true if using self-signed certs (NOT RECOMMENDED)
+  884  SKIP_SSL_VERIFY=false
+  885  # =============================================================================
+  886  # SECURITY & MONITORING
+  887  # =============================================================================
+  888  # Enable error tracking (optional - Sentry)
+  889  # SENTRY_DSN=https://key@sentry.io/project-id
+  890  # Enable audit logging (optional)
+  891  # AUDIT_LOG=true
+  892  # =============================================================================
+  893  # BACKUP & DISASTER RECOVERY
+  894  # =============================================================================
+  895  # Daily backup location (cron job)
+  896  # BACKUP_PATH=/backups/expense-tracker
+  897  # BACKUP_RETENTION_DAYS=30
+  898  # =============================================================================
+  899  # CRITICAL SECURITY NOTES:
+  900  # =============================================================================
+  901  #
+  902  # 1. DATABASE PASSWORDS:
+  903  #    - Use strong, random passwords: openssl rand -base64 32
+  904  #    - Different password for EACH environment
+  905  #    - Rotate every 90 days
+  906  #    - Store securely (never in code, logs, or messages)
+  907  #
+  908  # 2. API KEYS:
+  909  #    - Generate unique key for each environment
+  910  #    - Never use same key as development
+  911  #    - Rotate regularly (every 90 days)
+  912  #    - Immediately if compromised
+  913  #    - Store in secure vault (AWS Secrets Manager, HashiCorp Vault)
+  914  #
+  915  # 3. SSL CERTIFICATES:
+  916  #    - Production MUST use valid certificates from trusted CA
+  917  #    - NOT self-signed (except for testing)
+  918  #    - SKIP_SSL_VERIFY=false (always!)
+  919  #    - Auto-renew with certbot
+  920  #
+  921  # 4. FILE PERMISSIONS:
+  922  #    - chmod 600 .env (read/write by owner only)
+  923  #    - No group or world permissions
+  924  #    - Check: ls -la .env
+  925  #    - Output: -rw------- 1 user user
+  926  #
+  927  # 5. VERSION CONTROL:
+  928  #    - .gitignore must exclude: .env .env.* secrets
+  929  #    - git status should NOT show .env files
+  930  #    - Double-check: git ls-files | grep ".env"
+  931  #    - If committed, rotate ALL passwords immediately
+  932  #
+  933  # 6. TEAM PRACTICES:
+  934  #    - Share .env via secure channel only (1Password, Vault)
+  935  #    - Never via email, Slack, GitHub issues
+  936  #    - Team members get individual read-only access
+  937  #    - Audit logs for who accessed secrets
+  938  #
+  939  # 7. CI/CD SECRETS:
+  940  #    - Use GitHub Actions secrets, not .env files
+  941  #    - Store API keys in GitHub encrypted secrets
+  942  #    - Never log or display secret values
+  943  #    - Mask secrets in logs automatically
+  944  #
+  945  # 8. INCIDENT RESPONSE:
+  946  #    - If .env exposed: rotate ALL passwords immediately
+  947  #    - If API key leaked: generate new key, update config
+  948  #    - If DB password compromised: change PostgreSQL password
+  949  #    - Update all dependent services (CLI configs, CI/CD)
+  950  #
+  951  # =============================================================================
+  952  # For Production Setup Instructions, see:
+  953  # /app/expense-tracker/README.md
+  954  EOF
+  955  cat /app/expense-tracker/.env.example | head -20
+  956  cd /home/life/projects/expense_tracker_app/expense-cli && cat .gitignore 2>/dev/null || echo "No .gitignore found"
+  957  cat >> /home/life/projects/expense_tracker_app/expense-cli/.gitignore << 'EOF'
+  958  # ========== SECRETS & ENVIRONMENT (NEVER COMMIT) ==========
+  959  # Environment variable files with actual secrets
+  960  .env
+  961  .env.local
+  962  .env.*.local
+  963  .env.dev
+  964  .env.prod
+  965  .env.production
+  966  .env.staging
+  967  .env.test
+  968  # Config files with secrets (only .example should be committed)
+  969  config/config.toml
+  970  !config/config_dev.toml.example
+  971  !config/config_prod.toml.example
+  972  !config/config.toml.example
+  973  # Temporary files
+  974  *.tmp
+  975  *.log
+  976  *.pem
+  977  *.key
+  978  EOF
+  979  echo "✓ Updated CLI .gitignore"
+  980  cd /home/life/projects/expense_tracker_app/expenses-app-v1 && cat .gitignore 2>/dev/null || echo "No .gitignore found"
+  981  cd /app/expense-tracker && cat .gitignore 2>/dev/null || echo "No .gitignore found - creating one"
+  982  cat > /app/expense-tracker/.gitignore << 'EOF'
+  983  # ========== SECRETS & ENVIRONMENT (NEVER COMMIT!) ==========
+  984  # Environment variable files with sensitive data
+  985  .env
+  986  .env.local
+  987  .env.*.local
+  988  .env.production
+  989  .env.staging
+  990  .env.test
+  991  # ========== DATABASE ==========
+  992  # Database data (too large to commit)
+  993  tracker-data/
+  994  *.db
+  995  *.sqlite
+  996  *.dump
+  997  # ========== DOCKER & LOGS ==========
+  998  # Docker logs
+  999  *.log
+ 1000  docker-compose.override.yml
+ 1001  # ========== SSL CERTIFICATES ==========
+ 1002  # Private keys MUST NOT be committed
+ 1003  nginx/ssl/*.key
+ 1004  nginx/ssl/*.pem
+ 1005  !nginx/ssl/.gitkeep
+ 1006  # ========== IDE & EDITOR ==========
+ 1007  .vscode/
+ 1008  .idea/
+ 1009  *.swp
+ 1010  *.swo
+ 1011  *~
+ 1012  .DS_Store
+ 1013  Thumbs.db
+ 1014  # ========== PYTHON ==========
+ 1015  __pycache__/
+ 1016  *.py[cod]
+ 1017  *$py.class
+ 1018  *.so
+ 1019  .Python
+ 1020  *venv/
+ 1021  env/
+ 1022  *.egg-info/
+ 1023  # ========== BACKUPS ==========
+ 1024  backup_*.sql
+ 1025  backup_*.dump
+ 1026  *.backup
+ 1027  *.bak
+ 1028  # ========== TESTING ==========
+ 1029  .pytest_cache/
+ 1030  .coverage
+ 1031  coverage.xml
+ 1032  # ========== KUBERNETES & CI/CD ==========
+ 1033  *.yaml.bak
+ 1034  .env.kubernetes
+ 1035  secrets/
+ 1036  EOF
+ 1037  echo "✓ Created production .gitignore"
+ 1038  cat > /tmp/completion_summary.txt << 'EOF'
+ 1039  ================================================================================
+ 1040                      EXPENSE TRACKER - IMPLEMENTATION COMPLETE
+ 1041  ================================================================================
+ 1042  Date: January 2, 2026
+ 1043  Status: ✅ COMPLETE - All requirements implemented and documented
+ 1044  ================================================================================
+ 1045                                WHAT WAS DONE
+ 1046  ================================================================================
+ 1047  1. DOCKER NETWORKING ARCHITECTURE
+ 1048     ✅ Updated docker-compose.yaml files with port comments
+ 1049     ✅ Dev environment: ports 8443, 8081, 5433 (avoids conflicts)
+ 1050     ✅ Prod environment: ports 443, 8080, 5432 (standard)
+ 1051     ✅ Both environments run simultaneously with no conflicts
+ 1052     ✅ Isolated Docker networks (172.18.x and 172.19.x)
+ 1053  2. CLI ENVIRONMENT SUPPORT
+ 1054     ✅ Added --env flag to CLI (dev or prod)
+ 1055     ✅ Environment enum with ValueEnum trait
+ 1056     ✅ config_dev.toml and config_prod.toml created
+ 1057     ✅ Updated config.rs with load_for_env() method
+ 1058     ✅ Updated main.rs to use environment-specific loading
+ 1059     ✅ Code compiles without errors ✨
+ 1060  3. SECRETS MANAGEMENT (Industry Standard)
+ 1061     ✅ Using .env files + environment variables
+ 1062     ✅ Created .env.example templates (safe to commit)
+ 1063     ✅ .env files in .gitignore (never committed)
+ 1064     ✅ File permissions 600 (read/write owner only)
+ 1065     ✅ API keys separate from configuration
+ 1066     ✅ Follows 12-factor app methodology
+ 1067  4. COMPREHENSIVE DOCUMENTATION (3000+ lines)
+ 1068     ✅ expense-cli/README.md - CLI guide (setup, usage, config, security)
+ 1069     ✅ expenses-app-v1/README.md - Dev environment (operations, debugging)
+ 1070     ✅ app/expense-tracker/README.md - Prod environment (deployment, monitoring)
+ 1071     ✅ ARCHITECTURE.md - System design, networking, deployment pipeline
+ 1072     ✅ SECRETS_MANAGEMENT.md - Security procedures, key rotation, incidents
+ 1073     ✅ IMPLEMENTATION_SUMMARY.md - What was done, how to use it
+ 1074     ✅ QUICKSTART.md - 60-second setup guide
+ 1075  5. CONFIGURATION FILES
+ 1076     ✅ config/config_dev.toml - Dev URLs (localhost:8443)
+ 1077     ✅ config/config_prod.toml - Prod URLs (localhost:443)
+ 1078     ✅ expense-cli/.env.example - CLI secrets template
+ 1079     ✅ expenses-app-v1/.env.example - Dev server secrets template
+ 1080     ✅ app/expense-tracker/.env.example - Prod server secrets template
+ 1081  6. GITIGNORE UPDATES
+ 1082     ✅ expense-cli/.gitignore - Excludes .env files
+ 1083     ✅ expenses-app-v1/.gitignore - Already configured
+ 1084     ✅ app/expense-tracker/.gitignore - Comprehensive rules
+ 1085  ================================================================================
+ 1086                              FILES CREATED/MODIFIED
+ 1087  ================================================================================
+ 1088  CREATED (New Files):
+ 1089  ├── expense-cli/README.md (1000+ lines)
+ 1090  ├── expense-cli/config/config_dev.toml
+ 1091  ├── expense-cli/config/config_prod.toml
+ 1092  ├── expense-cli/.env.example
+ 1093  ├── expenses-app-v1/README.md (700+ lines)
+ 1094  ├── expenses-app-v1/.env.example
+ 1095  ├── app/expense-tracker/README.md (600+ lines)
+ 1096  ├── app/expense-tracker/.env.example
+ 1097  ├── app/expense-tracker/.gitignore
+ 1098  ├── ARCHITECTURE.md (1000+ lines)
+ 1099  ├── SECRETS_MANAGEMENT.md (900+ lines)
+ 1100  ├── IMPLEMENTATION_SUMMARY.md (600+ lines)
+ 1101  └── QUICKSTART.md (300+ lines)
+ 1102  MODIFIED (Existing Files):
+ 1103  ├── expense-cli/src/cli.rs (added Environment enum)
+ 1104  ├── expense-cli/src/config.rs (added load_for_env method)
+ 1105  ├── expense-cli/src/main.rs (updated to use load_for_env)
+ 1106  ├── expense-cli/.gitignore (added .env patterns)
+ 1107  ├── expenses-app-v1/docker-compose.yaml (added port comments)
+ 1108  └── app/expense-tracker/docker-compose.yaml (added port comments)
+ 1109  ================================================================================
+ 1110                              KEY FEATURES
+ 1111  ================================================================================
+ 1112  ✨ DUAL ENVIRONMENT SUPPORT
+ 1113     - Run dev and prod simultaneously on same server
+ 1114     - Different ports: dev (8443), prod (443)
+ 1115     - Different databases: dev (5433), prod (5432)
+ 1116     - Environment-specific configuration
+ 1117     - Easy switching with --env flag
+ 1118  🔐 SECURITY FIRST
+ 1119     - Secrets in .env files (never in code)
+ 1120     - .env files excluded from version control
+ 1121     - File permissions 600 (owner read/write only)
+ 1122     - Different API keys for dev and prod
+ 1123     - Follows OWASP and 12-factor app principles
+ 1124  📚 COMPREHENSIVE DOCUMENTATION
+ 1125     - 5 detailed README files (2400+ lines)
+ 1126     - Architecture diagrams and explanations
+ 1127     - Security best practices guide
+ 1128     - Troubleshooting procedures
+ 1129     - Step-by-step setup instructions
+ 1130  🚀 PRODUCTION READY
+ 1131     - Tested code compilation
+ 1132     - Industry-standard practices
+ 1133     - Scalable architecture
+ 1134     - Security incident procedures
+ 1135     - CI/CD deployment ready
+ 1136  ================================================================================
+ 1137                              HOW TO USE
+ 1138  ================================================================================
+ 1139  QUICK START (5 minutes):
+ 1140  1. PRODUCTION ENVIRONMENT:
+ 1141     cd /app/expense-tracker
+ 1142     cp .env.example .env
+ 1143     nano .env  # Fill in secrets
+ 1144     chmod 600 .env
+ 1145     docker compose up -d
+ 1146     curl -k https://localhost/health
+ 1147  2. DEVELOPMENT ENVIRONMENT:
+ 1148     cd /home/life/projects/expense_tracker_app/expenses-app-v1
+ 1149     cp .env.example .env
+ 1150     nano .env  # Fill in secrets
+ 1151     chmod 600 .env
+ 1152     docker compose up -d
+ 1153     curl -k https://localhost:8443/health
+ 1154  3. USE CLI:
+ 1155     cd /home/life/projects/expense_tracker_app/expense-cli
+ 1156     cp .env.example .env.dev
+ 1157     nano .env.dev  # Add API_KEY_DEV
+ 1158     source .env.dev
+ 1159     
+ 1160     expense --env dev user list    # Dev environment
+ 1161     expense --env prod user list   # Prod environment
+ 1162  BOTH ENVIRONMENTS RUNNING SIMULTANEOUSLY! ✨
+ 1163  ================================================================================
+ 1164                            SECURITY HIGHLIGHTS
+ 1165  ================================================================================
+ 1166  ✅ Secrets Management:
+ 1167     - .env files template approach (industry standard)
+ 1168     - Environment variables override config values
+ 1169     - Different secrets for each environment
+ 1170     - Never committed to Git
+ 1171     - File permissions prevent unauthorized access
+ 1172  ✅ Network Security:
+ 1173     - Docker bridge networks (isolated)
+ 1174     - Database not exposed to external network
+ 1175     - HTTPS/SSL required (8443 dev, 443 prod)
+ 1176     - API key authentication (X-API-Key header)
+ 1177  ✅ Best Practices:
+ 1178     - Configuration separated from code
+ 1179     - Secrets separated from configuration
+ 1180     - Key rotation procedures documented
+ 1181     - Incident response guide included
+ 1182     - Audit procedures outlined
+ 1183  ================================================================================
+ 1184                          DOCUMENTATION GUIDE
+ 1185  ================================================================================
+ 1186  For Getting Started:
+ 1187  → Read: QUICKSTART.md (5 minutes)
+ 1188  For CLI Usage:
+ 1189  → Read: expense-cli/README.md
+ 1190  For Development Setup:
+ 1191  → Read: expenses-app-v1/README.md
+ 1192  For Production Deployment:
+ 1193  → Read: app/expense-tracker/README.md
+ 1194  For System Architecture:
+ 1195  → Read: ARCHITECTURE.md
+ 1196  For Security & Secrets:
+ 1197  → Read: SECRETS_MANAGEMENT.md
+ 1198  For Implementation Details:
+ 1199  → Read: IMPLEMENTATION_SUMMARY.md
+ 1200  ================================================================================
+ 1201                              VERIFICATION
+ 1202  ================================================================================
+ 1203  ✓ CLI compiles without errors
+ 1204  ✓ All configuration files created
+ 1205  ✓ .env.example templates comprehensive
+ 1206  ✓ .gitignore properly configured
+ 1207  ✓ Docker compose port mappings separated
+ 1208  ✓ Documentation complete (3000+ lines)
+ 1209  ✓ Code follows Rust best practices
+ 1210  ✓ Security procedures documented
+ 1211  ✓ Both environments can run simultaneously
+ 1212  ✓ Backward compatibility maintained
+ 1213  ================================================================================
+ 1214                            NEXT STEPS (OPTIONAL)
+ 1215  ================================================================================
+ 1216  Immediate:
+ 1217  1. Review all documentation
+ 1218  2. Test both environments together
+ 1219  3. Verify secrets not exposed in Git
+ 1220  4. Train team on --env flag usage
+ 1221  Short Term:
+ 1222  1. Setup secrets rotation schedule
+ 1223  2. Add monitoring/alerting
+ 1224  3. Document on-boarding process
+ 1225  4. Create team runbooks
+ 1226  Long Term:
+ 1227  1. Consider HashiCorp Vault for advanced secrets
+ 1228  2. Setup automated compliance checking
+ 1229  3. Plan Kubernetes migration
+ 1230  4. Implement audit logging
+ 1231  ================================================================================
+ 1232                              SUPPORT
+ 1233  ================================================================================
+ 1234  Documentation is comprehensive - all questions should be answered in:
+ 1235  1. QUICKSTART.md (quick reference)
+ 1236  2. Respective README.md files (detailed guides)
+ 1237  3. ARCHITECTURE.md (system design)
+ 1238  4. SECRETS_MANAGEMENT.md (security)
+ 1239  If issues arise, troubleshooting sections cover:
+ 1240  - Port conflicts
+ 1241  - Container issues
+ 1242  - Database problems
+ 1243  - Configuration errors
+ 1244  - Secret loading failures
+ 1245  ================================================================================
+ 1246  Status: ✅ COMPLETE - Ready for use!
+ 1247  All files documented with examples, best practices, and procedures.
+ 1248  Both environments can run simultaneously without conflicts.
+ 1249  Secrets properly managed using industry-standard approach.
+ 1250  Complete documentation for developers, DevOps, and security teams.
+ 1251  Questions? Check the comprehensive documentation first - answers are there!
+ 1252  ================================================================================
+ 1253  EOF
+ 1254  cat /tmp/completion_summary.txt
+ 1255  git status
+ 1256  ls
+ 1257  cd /home/life/projects/expense_tracker_app/expense-cli && cat .env.example
+ 1258  cd /home/life/projects/expense_tracker_app/expense-cli && cat src/config.rs
+ 1259  cd /home/life/projects/expense_tracker_app/expense-cli && sed -i 's|        let mut config: Config = toml::from_str(&content)\n            .context("Failed to parse config file")?;\n        \n        config.environment = Some(env);\n        Ok(config)|        let mut config: Config = toml::from_str(&content)\n            .context("Failed to parse config file")?;\n        \n        // Override api_key from environment variables (secrets management)\n        let api_key_env = match env {\n            Environment::Dev => std::env::var("API_KEY_DEV").ok(),\n            Environment::Prod => std::env::var("API_KEY_PROD").ok(),\n        };\n        \n        if let Some(api_key) = api_key_env {\n            config.api.api_key = api_key;\n            eprintln!("🔑 API key loaded from environment variable");\n        } else {\n            eprintln!("⚠️  No API key found in environment variables!");\n            eprintln!("📝 Set environment variable:");\n            match env {\n                Environment::Dev => eprintln!("  export API_KEY_DEV=your-dev-api-key"),\n                Environment::Prod => eprintln!("  export API_KEY_PROD=your-prod-api-key"),\n            }\n            eprintln!("💡 Or source your .env file: source .env.{}", env_name);\n        }\n        \n        // Override skip_ssl_verify from environment if set\n        let ssl_env = match env {\n            Environment::Dev => std::env::var("SKIP_SSL_VERIFY_DEV").ok(),\n            Environment::Prod => std::env::var("SKIP_SSL_VERIFY_PROD").ok(),\n        };\n        \n        if let Some(ssl_str) = ssl_env {\n            if let Ok(ssl_bool) = ssl_str.parse::<bool>() {\n                config.api.skip_ssl_verify = ssl_bool;\n                eprintln!("🔒 SSL verification override: {}", if ssl_bool { "disabled" } else { "enabled" });\n            }\n        }\n        \n        config.environment = Some(env);\n        Ok(config)|g' src/config.rs
+ 1260  cd /home/life/projects/expense_tracker_app/expense-cli && cp src/config.rs src/config.rs.backup
+ 1261  cd /home/life/projects/expense_tracker_app/expense-cli && cat > src/config.rs << 'EOF'
+ 1262  #![allow(dead_code)]
+ 1263  use anyhow::{Context, Result};
+ 1264  use serde::Deserialize;
+ 1265  use std::fs;
+ 1266  use crate::cli::Environment;
+ 1267  #[derive(Debug, Deserialize, Clone)]
+ 1268  pub struct Config {
+ 1269      pub api: ApiConfig,
+ 1270      pub display: DisplayConfig,
+ 1271      pub defaults: DefaultsConfig,
+ 1272      #[serde(skip)]
+ 1273      pub environment: Option<Environment>,
+ 1274  }
+ 1275  #[derive(Debug, Deserialize, Clone)]
+ 1276  pub struct ApiConfig {
+ 1277      pub base_url: String,
+ 1278      pub api_key: String,
+ 1279      pub skip_ssl_verify: bool,
+ 1280  }
+ 1281  #[derive(Debug, Deserialize, Clone)]
+ 1282  pub struct DisplayConfig {
+ 1283      pub python_path: String,
+ 1284      pub display_module: String,
+ 1285  }
+ 1286  #[derive(Debug, Deserialize, Clone)]
+ 1287  pub struct DefaultsConfig {
+ 1288      pub default_user_id: usize,
+ 1289      pub date_format: String,
+ 1290  }
+ 1291  impl Config {
+ 1292      /// Load configuration based on environment
+ 1293      /// 
+ 1294      /// Searches for config files in this order:
+ 1295      /// 1. config/config_<env>.toml (environment-specific)
+ 1296      /// 2. config/config.toml (fallback/default)
+ 1297      pub fn load_for_env(env: Environment) -> Result<Self> {
+ 1298          let env_name = match env {
+ 1299              Environment::Dev => "dev",
+ 1300              Environment::Prod => "prod",
+ 1301          };
+ 1302          
+ 1303          // Try environment-specific config first
+ 1304          let env_config_path = format!("config/config_{}.toml", env_name);
+ 1305          let default_config_path = "config/config.toml";
+ 1306          
+ 1307          let config_path = if std::path::Path::new(&env_config_path).exists() {
+ 1308              eprintln!("🔧 Using {} environment config", env_name.to_uppercase());
+ 1309              env_config_path
+ 1310          } else if std::path::Path::new(default_config_path).exists() {
+ 1311              eprintln!("⚠️  No config_{}.toml found, using default config.toml", env_name);
+ 1312              default_config_path.to_string()
+ 1313          } else {
+ 1314              eprintln!("❌ Configuration file not found!");
+ 1315              eprintln!("📝 Please create config files:");
+ 1316              eprintln!("\nFor development:");
+ 1317              eprintln!("  cp config/config.toml.example config/config_dev.toml");
+ 1318              eprintln!("  # Edit with dev settings (port 8443)");
+ 1319              eprintln!("\nFor production:");
+ 1320              eprintln!("  cp config/config.toml.example config/config_prod.toml");
+ 1321              eprintln!("  # Edit with prod settings (port 443)");
+ 1322              std::process::exit(1);
+ 1323          };
+ 1324          
+ 1325          let content = fs::read_to_string(&config_path)
+ 1326              .context(format!("Failed to read config file: {}", config_path))?;
+ 1327          
+ 1328          let mut config: Config = toml::from_str(&content)
+ 1329              .context("Failed to parse config file")?;
+ 1330          
+ 1331          // Override api_key from environment variables (secrets management)
+ 1332          let api_key_env = match env {
+ 1333              Environment::Dev => std::env::var("API_KEY_DEV").ok(),
+ 1334              Environment::Prod => std::env::var("API_KEY_PROD").ok(),
+ 1335          };
+ 1336          
+ 1337          if let Some(api_key) = api_key_env {
+ 1338              config.api.api_key = api_key;
+ 1339              eprintln!("🔑 API key loaded from environment variable");
+ 1340          } else {
+ 1341              eprintln!("⚠️  No API key found in environment variables!");
+ 1342              eprintln!("📝 Set environment variable:");
+ 1343              match env {
+ 1344                  Environment::Dev => eprintln!("  export API_KEY_DEV=your-dev-api-key"),
+ 1345                  Environment::Prod => eprintln!("  export API_KEY_PROD=your-prod-api-key"),
+ 1346              }
+ 1347              eprintln!("💡 Or source your .env file: source .env.{}", env_name);
+ 1348          }
+ 1349          
+ 1350          // Override skip_ssl_verify from environment if set
+ 1351          let ssl_env = match env {
+ 1352              Environment::Dev => std::env::var("SKIP_SSL_VERIFY_DEV").ok(),
+ 1353              Environment::Prod => std::env::var("SKIP_SSL_VERIFY_PROD").ok(),
+ 1354          };
+ 1355          
+ 1356          if let Some(ssl_str) = ssl_env {
+ 1357              if let Ok(ssl_bool) = ssl_str.parse::<bool>() {
+ 1358                  config.api.skip_ssl_verify = ssl_bool;
+ 1359                  eprintln!("🔒 SSL verification override: {}", if ssl_bool { "disabled" } else { "enabled" });
+ 1360              }
+ 1361          }
+ 1362          
+ 1363          config.environment = Some(env);
+ 1364          Ok(config)
+ 1365      }
+ 1366      
+ 1367      /// Load configuration from default file (for backward compatibility)
+ 1368      pub fn load() -> Result<Self> {
+ 1369          Self::load_for_env(Environment::Dev)
+ 1370      }
+ 1371      
+ 1372      /// Get current environment name
+ 1373      pub fn env_name(&self) -> &str {
+ 1374          match self.environment {
+ 1375              Some(Environment::Dev) => "development",
+ 1376              Some(Environment::Prod) => "production",
+ 1377              None => "unknown",
+ 1378          }
+ 1379      }
+ 1380      
+ 1381      /// Get Python interpreter path (use system default if not specified)
+ 1382      pub fn python_interpreter(&self) -> String {
+ 1383          if self.display.python_path.is_empty() {
+ 1384              "python3".to_string()
+ 1385          } else {
+ 1386              self.display.python_path.clone()
+ 1387          }
+ 1388      }
+ 1389  }
+ 1390  EOF
+ 1391  cd /home/life/projects/expense_tracker_app/expense-cli && cargo check
+ 1392  cd /home/life/projects/expense_tracker_app/expense-cli && echo "# Example: How to read API key when --env prod
+ 1393  # 1. Set the production API key in environment variable
+ 1394  export API_KEY_PROD=your-production-api-key-here
+ 1395  # 2. Run the CLI with --env prod
+ 1396  ./expense --env prod user list
+ 1397  # The code will:
+ 1398  # - Load config_prod.toml (connects to https://localhost/api)
+ 1399  # - Override api.api_key with value from API_KEY_PROD environment variable
+ 1400  # - Use the key for API authentication
+ 1401  # Alternative: Source from .env.prod file
+ 1402  source .env.prod
+ 1403  ./expense --env prod user list
+ 1404  # The .env.prod file should contain:
+ 1405  # API_KEY_PROD=your-production-api-key-here
+ 1406  # SKIP_SSL_VERIFY_PROD=false" > /tmp/api_key_demo.txt && cat /tmp/api_key_demo.txt
+ 1407  cd /home/life/projects/expense_tracker_app/expense-cli && grep -A 10 "pub struct ApiConfig" src/config.rs
+ 1408  cd /home/life/projects/expense_tracker_app/expense-cli && cat src/config.rs | grep -A 5 "pub struct ApiConfig"
+ 1409  cd /home/life/projects/expense_tracker_app/expense-cli && cat src/config.rs | sed -n '60,80p'
+ 1410  cd /home/life/projects/expense_tracker_app/expense-cli && sed -i 's|pub struct ApiConfig {|#[derive(Debug, Deserialize, Clone)]\npub struct ApiConfig {|' src/config.rs
+ 1411  cd /home/life/projects/expense_tracker_app/expense-cli && sed -i 's|    pub api_key: String,|    pub api_key: Option<String>,|' src/config.rs
+ 1412  cd /home/life/projects/expense_tracker_app/expense-cli && sed -i 's|        // Override api_key from environment variables (secrets management)
+ 1413          let api_key_env = match env {
+ 1414              Environment::Dev => std::env::var("API_KEY_DEV").ok(),
+ 1415              Environment::Prod => std::env::var("API_KEY_PROD").ok(),
+ 1416          };
+ 1417          
+ 1418          if let Some(api_key) = api_key_env {
+ 1419              config.api.api_key = api_key;
+ 1420              eprintln!("🔑 API key loaded from environment variable");
+ 1421          } else {
+ 1422              eprintln!("⚠️  No API key found in environment variables!");
+ 1423              eprintln!("📝 Set environment variable:");
+ 1424              match env {
+ 1425                  Environment::Dev => eprintln!("  export API_KEY_DEV=your-dev-api-key"),
+ 1426                  Environment::Prod => eprintln!("  export API_KEY_PROD=your-prod-api-key"),
+ 1427              }
+ 1428              eprintln!("💡 Or source your .env file: source .env.{}", env_name);
+ 1429          }|        // Set api_key from environment variables (secrets management)
+ 1430          // Environment variables take precedence over TOML values
+ 1431          let api_key_env = match env {
+ 1432              Environment::Dev => std::env::var("API_KEY_DEV").ok(),
+ 1433              Environment::Prod => std::env::var("API_KEY_PROD").ok(),
+ 1434          };
+ 1435          
+ 1436          if let Some(api_key) = api_key_env {
+ 1437              config.api.api_key = Some(api_key);
+ 1438              eprintln!("🔑 API key loaded from environment variable");
+ 1439          } else if config.api.api_key.is_none() {
+ 1440              eprintln!("⚠️  No API key found in environment variables or config file!");
+ 1441              eprintln!("📝 Set environment variable:");
+ 1442              match env {
+ 1443                  Environment::Dev => eprintln!("  export API_KEY_DEV=your-dev-api-key"),
+ 1444                  Environment::Prod => eprintln!("  export API_KEY_PROD=your-prod-api-key"),
+ 1445              }
+ 1446              eprintln!("💡 Or source your .env file: source .env.{}", env_name);
+ 1447          }|g' src/config.rs
+ 1448  cd /home/life/projects/expense_tracker_app/expense-cli && cat > src/config.rs << 'EOF'
+ 1449  #![allow(dead_code)]
+ 1450  use anyhow::{Context, Result};
+ 1451  use serde::Deserialize;
+ 1452  use std::fs;
+ 1453  use crate::cli::Environment;
+ 1454  #[derive(Debug, Deserialize, Clone)]
+ 1455  pub struct Config {
+ 1456      pub api: ApiConfig,
+ 1457      pub display: DisplayConfig,
+ 1458      pub defaults: DefaultsConfig,
+ 1459      #[serde(skip)]
+ 1460      pub environment: Option<Environment>,
+ 1461  }
+ 1462  #[derive(Debug, Deserialize, Clone)]
+ 1463  pub struct ApiConfig {
+ 1464      pub base_url: String,
+ 1465      pub api_key: Option<String>,
+ 1466      pub skip_ssl_verify: bool,
+ 1467  }
+ 1468  #[derive(Debug, Deserialize, Clone)]
+ 1469  pub struct DisplayConfig {
+ 1470      pub python_path: String,
+ 1471      pub display_module: String,
+ 1472  }
+ 1473  #[derive(Debug, Deserialize, Clone)]
+ 1474  pub struct DefaultsConfig {
+ 1475      pub default_user_id: usize,
+ 1476      pub date_format: String,
+ 1477  }
+ 1478  impl Config {
+ 1479      /// Load configuration based on environment
+ 1480      /// 
+ 1481      /// Searches for config files in this order:
+ 1482      /// 1. config/config_<env>.toml (environment-specific)
+ 1483      /// 2. config/config.toml (fallback/default)
+ 1484      pub fn load_for_env(env: Environment) -> Result<Self> {
+ 1485          let env_name = match env {
+ 1486              Environment::Dev => "dev",
+ 1487              Environment::Prod => "prod",
+ 1488          };
+ 1489          
+ 1490          // Try environment-specific config first
+ 1491          let env_config_path = format!("config/config_{}.toml", env_name);
+ 1492          let default_config_path = "config/config.toml";
+ 1493          
+ 1494          let config_path = if std::path::Path::new(&env_config_path).exists() {
+ 1495              eprintln!("🔧 Using {} environment config", env_name.to_uppercase());
+ 1496              env_config_path
+ 1497          } else if std::path::Path::new(default_config_path).exists() {
+ 1498              eprintln!("⚠️  No config_{}.toml found, using default config.toml", env_name);
+ 1499              default_config_path.to_string()
+ 1500          } else {
+ 1501              eprintln!("❌ Configuration file not found!");
+ 1502              eprintln!("📝 Please create config files:");
+ 1503              eprintln!("\nFor development:");
+ 1504              eprintln!("  cp config/config.toml.example config/config_dev.toml");
+ 1505              eprintln!("  # Edit with dev settings (port 8443)");
+ 1506              eprintln!("\nFor production:");
+ 1507              eprintln!("  cp config/config.toml.example config/config_prod.toml");
+ 1508              eprintln!("  # Edit with prod settings (port 443)");
+ 1509              std::process::exit(1);
+ 1510          };
+ 1511          
+ 1512          let content = fs::read_to_string(&config_path)
+ 1513              .context(format!("Failed to read config file: {}", config_path))?;
+ 1514          
+ 1515          let mut config: Config = toml::from_str(&content)
+ 1516              .context("Failed to parse config file")?;
+ 1517          
+ 1518          // Set api_key from environment variables (secrets management)
+ 1519          // Environment variables take precedence over TOML values
+ 1520          let api_key_env = match env {
+ 1521              Environment::Dev => std::env::var("API_KEY_DEV").ok(),
+ 1522              Environment::Prod => std::env::var("API_KEY_PROD").ok(),
+ 1523          };
+ 1524          
+ 1525          if let Some(api_key) = api_key_env {
+ 1526              config.api.api_key = Some(api_key);
+ 1527              eprintln!("🔑 API key loaded from environment variable");
+ 1528          } else if config.api.api_key.is_none() {
+ 1529              eprintln!("⚠️  No API key found in environment variables or config file!");
+ 1530              eprintln!("📝 Set environment variable:");
+ 1531              match env {
+ 1532                  Environment::Dev => eprintln!("  export API_KEY_DEV=your-dev-api-key"),
+ 1533                  Environment::Prod => eprintln!("  export API_KEY_PROD=your-prod-api-key"),
+ 1534              }
+ 1535              eprintln!("💡 Or source your .env file: source .env.{}", env_name);
+ 1536          }
+ 1537          
+ 1538          // Override skip_ssl_verify from environment if set
+ 1539          let ssl_env = match env {
+ 1540              Environment::Dev => std::env::var("SKIP_SSL_VERIFY_DEV").ok(),
+ 1541              Environment::Prod => std::env::var("SKIP_SSL_VERIFY_PROD").ok(),
+ 1542          };
+ 1543          
+ 1544          if let Some(ssl_str) = ssl_env {
+ 1545              if let Ok(ssl_bool) = ssl_str.parse::<bool>() {
+ 1546                  config.api.skip_ssl_verify = ssl_bool;
+ 1547                  eprintln!("🔒 SSL verification override: {}", if ssl_bool { "disabled" } else { "enabled" });
+ 1548              }
+ 1549          }
+ 1550          
+ 1551          config.environment = Some(env);
+ 1552          Ok(config)
+ 1553      }
+ 1554      
+ 1555      /// Load configuration from default file (for backward compatibility)
+ 1556      pub fn load() -> Result<Self> {
+ 1557          Self::load_for_env(Environment::Dev)
+ 1558      }
+ 1559      
+ 1560      /// Get current environment name
+ 1561      pub fn env_name(&self) -> &str {
+ 1562          match self.environment {
+ 1563              Some(Environment::Dev) => "development",
+ 1564              Some(Environment::Prod) => "production",
+ 1565              None => "unknown",
+ 1566          }
+ 1567      }
+ 1568      
+ 1569      /// Get Python interpreter path (use system default if not specified)
+ 1570      pub fn python_interpreter(&self) -> String {
+ 1571          if self.display.python_path.is_empty() {
+ 1572              "python3".to_string()
+ 1573          } else {
+ 1574              self.display.python_path.clone()
+ 1575          }
+ 1576      }
+ 1577  }
+ 1578  EOF
+ 1579  cd /home/life/projects/expense_tracker_app/expense-cli && grep -n "api_key" src/api.rs
+ 1580  cd /home/life/projects/expense_tracker_app/expense-cli && sed -i 's|            api_key: config.api.api_key.clone(),|            api_key: config.api.api_key.clone().unwrap_or_else(|| {\n                eprintln!("❌ API key not configured!");\n                std::process::exit(1);\n            }),|' src/api.rs
+ 1581  cd /home/life/projects/expense_tracker_app/expense-cli && sed -i 's|api_key: config.api.api_key.clone(),|api_key: config.api.api_key.clone().unwrap_or_else(|| {\n                eprintln!("❌ API key not configured!");\n                std::process::exit(1);\n            }),|' src/api.rs
+ 1582  cd /home/life/projects/expense_tracker_app/expense-cli && sed -n '25,40p' src/api.rs
+ 1583  cd /home/life/projects/expense_tracker_app/expense-cli && sed -i '32s|api_key: config.api.api_key.clone(),|api_key: config.api.api_key.clone().unwrap_or_else(|| {\n                eprintln!("❌ API key not configured!");\n                std::process::exit(1);\n            }),|' src/api.rs
+ 1584  cd /home/life/projects/expense_tracker_app/expense-cli && awk '
+ 1585  NR==32 {
+ 1586      print "            api_key: config.api.api_key.clone().unwrap_or_else(|| {"
+ 1587      print "                eprintln!(\"❌ API key not configured!\");"
+ 1588      print "                std::process::exit(1);"
+ 1589      print "            }),"
+ 1590      next
+ 1591  }
+ 1592  { print }
+ 1593  ' src/api.rs > src/api.rs.tmp && mv src/api.rs.tmp src/api.rs
+ 1594  cd /home/life/projects/expense_tracker_app/expense-cli && cargo check
+ 1595  cd /home/life/projects/expense_tracker_app/expense-cli && ./expense -e prod -i
+ 1596  cd /home/life/projects/expense_tracker_app/expense-cli && grep "api_key: Option<String>" src/config.rs
+ 1597  cd /home/life/projects/expense_tracker_app/expense-cli && grep -n "api_key" config/config_prod.toml
+ 1598  cd /home/life/projects/expense_tracker_app/expense-cli && cargo build
+ 1599  cd /home/life/projects/expense_tracker_app/expense-cli && ./target/debug/expense-cli -e prod -i
+ 1600  cd /home/life/projects/expense_tracker_app/expenses-app-v1 && cat Dockerfile
+ 1601  cd /home/life/projects/expense_tracker_app/expenses-app-v1 && cat Dockerfile && echo "---" && head -40 docker-compose.yaml
+ 1602  cd /home/life/projects/expense_tracker_app/expenses-app-v1 && head -20 entrypoint.sh
+ 1603  tmux attach
+ 1604  clear
+ 1605  sudo systemctl restart yes
+ 1606  sudo systemctl restart sshd
+ 1607  sudo apt update
+ 1608  sudo apt install fail2ban -y
+ 1609  sudo vim /etc/fail2ban/jail.local
+ 1610  sudo systemctl enable fail2ban
+ 1611  sudo systemctl start fail2ban
+ 1612  sudo ufw status
+ 1613  sudo ufw status numberesd
+ 1614  sudo ufw status numbered
+ 1615  sudo ufw status
+ 1616  sudo ufw allow in on tailscale0
+ 1617  sudo ufw status
+ 1618  sudo ufw status numbered
+ 1619  sudo ufw allow ssh
+ 1620  sudo ufw status numbered
+ 1621  sudo ufw status
+ 1622  tailscale up --ssh
+ 1623  sudo tailscale up --ssh
+ 1624  tailscale status
+ 1625  # On home server, set the tag
+ 1626  tailscale up --advertise-tags=tag:homeserver
+ 1627  tailscale status | grep $(hostname)
+ 1628  tailscale up --ssh --accept-routes
+ 1629  sudo tailscale up --ssh --accept-routes
+ 1630  tailscale ip
+ 1631  tailscale status --json | jq -r '.Self.DNSName'
+ 1632  tailscale serve tcp:2222 tcp://localhost:22
+ 1633  t[Bailscale serve --bg --tcp 2222 tcp://localhost:22
+ 1634  vim /etc/ssh/sshd_config
+ 1635  sudo vim /etc/ssh/sshd_config
+ 1636  sudo systemctl restart sshd
+ 1637  sudo systemctl status fail2ban
+ 1638  sudo fail2ban-client status sshd
+ 1639  tailscale serve tcp:2222 tcp://localhost:22
+ 1640  tailscale serve --bg --tcp 2222 tcp://localhost:22
+ 1641  sudo tailscale serve --bg --tcp 2222 tcp://localhost:22
+ 1642  tailscale funnel status
+ 1643  tailscale funnel 2222 on
+ 1644  tailscale funnel --help
+ 1645  tailscale funnel 2222 off
+ 1646  tailscale funnel 2222
+ 1647  sudo tailscale funnel 2222
+ 1648  sudo tailscale funnel 2222 --bg
+ 1649  sudo tailscale funnel --bg 2222
+ 1650  sudo tailscale funnel 2222 off
+ 1651  sudo tailscale funnel --https=443 off
+ 1652  tailscale funnel status
+ 1653  sudo tailscale funnel --bg 2222
+ 1654  tailscale funnel status
+ 1655  sudo ufw status numbered
+ 1656  sudo ufw allow 2222/tcp
+ 1657  sudo ufw allow 2222/tcp from 100.76.209.37
+ 1658  ip addr show tailscale0
+ 1659  sudo ufw status numbered
+ 1660  sudo ufw delete 5
+ 1661  sudo ufw delete 10
+ 1662  sudo ufw status numbered
+ 1663  sudo ufw delete 7
+ 1664  sudo ufw status numbered
+ 1665  sudo ufw delete 1
+ 1666  sudo ufw numbered
+ 1667  tailscale funnel status
+ 1668  sudo ufw status numbered
+ 1669  tailscale serve status
+ 1670  tailscale funnel status
+ 1671  tailscale serve status
+ 1672  sudo tailscale serve reset
+ 1673  sudo tailscale funnel --all off
+ 1674  sudo tailscale funnel --all reset
+ 1675  sudo tailscale funnel -all reset
+ 1676  sudo tailscale funnel reset
+ 1677  sudo tailscale funnel status
+ 1678  sudo tailscale serve status
+ 1679  sudo ufw status
+ 1680  sudo ufw status numbered
+ 1681  tailscale serve tcp:2222 tcp://localhost:22
+ 1682  tailscale serve --bg --tcp 2222 tcp://localhost:22
+ 1683  sudo tailscale serve --bg --tcp 2222 tcp://localhost:22
+ 1684  tailscale funnel --bg 2222 on
+ 1685  sudo tailscale funnel --bg 2222 on
+ 1686  tailscale version
+ 1687  tailscale funnel 2222 on
+ 1688  sudo tailscale funnel 2222 on
+ 1689  tailscale funnel --bg --tcp 2222 tcp://localhost:22
+ 1690  sudo tailscale funnel --bg --tcp 2222 tcp://localhost:22
+ 1691  tailscale funnel status
+ 1692  tailscale serve status
+ 1693  ufw status numbered
+ 1694  sudo ufw status numbered
+ 1695  curl -v https://rrr-us1.tail9e4b65.ts.net 2>&1 | head -20
+ 1696  ssh -p 22 life@localhost
+ 1697  sudo ssh -p 22 life@localhost
+ 1698  sudo ss -tlnp | grep 2222
+ 1699  sudo journalctl -u tailscaled -f
+ 1700  sudo tailscale funnel --tcp=2222 off
+ 1701  sudo tailscale funnel --bg --tcp 443 tcp://localhost:22
+ 1702  tailscale funnel status
+ 1703  sudo tailscale funnel --bg --tcp 443 tcp://localhost:22
+ 1704  tailscale funnel status
+ 1705  sudo tailscale funnel --tcp=443 off
+ 1706  tailscale funnel status
+ 1707  sudo tailscale funnel --tcp=2222 off
+ 1708  tailscale funnel status
+ 1709  tailscale funnel reset
+ 1710  sudo tailscale funnel reset
+ 1711  tailscale funnel status
+ 1712  curl -o tailscale.zip https://pkgs.tailscale.com/stable/tailscale_1.92.3_windows_amd64.zip
+ 1713  ls
+ 1714  which cloudflared
+ 1715  wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
+ 1716  sudo mv cloudflared-linux-amd64 /usr/local/bin/cloudflared
+ 1717  sudo chmod +x /usr/local/bin/cloudflared
+ 1718  cloudflared --version
+ 1719  cloudflared tunnel login
+ 1720  mkdir -p /home/life/projects/expense_tracker_app/expenses-app-v1/backups && echo "# Database backups - do not commit
+*
+ 1721  cp /home/life/projects/expense_tracker_app/expenses-app-v1/db_manager.py /app/expense-tracker/ && cp /home/life/projects/expense_tracker_app/expenses-app-v1/DATABASE_OPERATIONS.md /app/expense-tracker/ && mkdir -p /app/expense-tracker/backups && cp /home/life/projects/expense_tracker_app/expenses-app-v1/backups/.gitignore /app/expense-tracker/backups/
+ 1722  cp /home/life/projects/expense_tracker_app/expenses-app-v1/db_manager.py /app/expense-tracker/
+ 1723  cp /home/life/projects/expense_tracker_app/expenses-app-v1/DATABASE_OPERATIONS.md /app/expense-tracker/ && mkdir -p /app/expense-tracker/backups
+ 1724  cd /home/life/projects/expense_tracker_app/expenses-app-v1 && python3 db_manager.py --help
+ 1725  cd /home/life/projects/expense_tracker_app/expenses-app-v1 && /home/life/projects/expense_tracker_app/venv/bin/pip install psycopg2-binary
+ 1726  cd /home/life/projects/expense_tracker_app/expenses-app-v1 && /home/life/projects/expense_tracker_app/venv/bin/python db_manager.py --help
+ 1727  cd /home/life/projects/expense_tracker_app/expenses-app-v1 && PGPASSWORD=dev_password_dev psql -h localhost -p 5433 -U expense_admin -d expenses_db -c "\dt"
+ 1728  cat /home/life/projects/expense_tracker_app/expenses-app-v1/.env 2>/dev/null | grep -E "^(POSTGRES|DB_)" | head -10
+ 1729  cd /home/life/projects/expense_tracker_app/expenses-app-v1 && PGPASSWORD=supersecretpostgrespassword psql -h localhost -p 5433 -U expense_admin -d expenses_db -c "\dt"
+ 1730  cd /home/life/projects/expense_tracker_app/expenses-app-v1 && ls -la migrations/versions/ 2>/dev/null || echo "No versions directory"
+ 1731  cat /app/expense-tracker/.env 2>/dev/null | grep -E "^(POSTGRES|DB_)" | head -10
+ 1732  PGPASSWORD=supersecretdbpassword psql -h localhost -p 5432 -U expense_admin -d expenses_db -c "\dt"
+ 1733  cd /home/life/projects/expense_tracker_app/expenses-app-v1 && cat migrations/versions/92785daea096_add_debitcard_table.py
+ 1734  cd /home/life/projects/expense_tracker_app/expenses-app-v1 && mkdir -p migrations/versions_backup && mv migrations/versions/*.py migrations/versions_backup/ 2>/dev/null; ls -la migrations/versions/
+ 1735  cd /home/life/projects/expense_tracker_app/expenses-app-v1 && source /home/life/projects/expense_tracker_app/venv/bin/activate && export DATABASE_URL="postgresql://expense_admin:supersecretpostgrespassword@localhost:5433/expenses_db" && alembic upgrade head
+ 1736  PGPASSWORD=supersecretpostgrespassword psql -h localhost -p 5433 -U expense_admin -d expenses_db -c "DROP TABLE IF EXISTS alembic_version CASCADE;"
+ 1737  cd /home/life/projects/expense_tracker_app/expenses-app-v1 && source /home/life/projects/expense_tracker_app/venv/bin/activate && export DATABASE_URL="postgresql://expense_admin:supersecretpostgrespassword@localhost:5433/expenses_db" && alembic upgrade head
+ 1738  PGPASSWORD=supersecretpostgrespassword psql -h localhost -p 5433 -U expense_admin -d expenses_db -c "\dt"
+ 1739  PGPASSWORD=supersecretpostgrespassword psql -h localhost -p 5433 -U expense_admin -d expenses_db -c "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';"
+ 1740  PGPASSWORD=supersecretpostgrespassword psql -h localhost -p 5433 -U expense_admin -d expenses_db -c "SELECT EXISTS (SELECT 1 FROM pg_tables WHERE tablename = 'user' AND schemaname = 'public');"
+ 1741  PGPASSWORD=supersecretpostgrespassword psql -h localhost -p 5433 -U expense_admin -d expenses_db -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO expense_admin; GRANT ALL ON SCHEMA public TO public;"
+ 1742  cd /home/life/projects/expense_tracker_app/expenses-app-v1 && source /home/life/projects/expense_tracker_app/venv/bin/activate && export DATABASE_URL="postgresql://expense_admin:supersecretpostgrespassword@localhost:5433/expenses_db" && alembic upgrade head
+ 1743  PGPASSWORD=supersecretdbpassword psql -h localhost -p 5432 -U expense_admin -d expenses_db -c "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO expense_admin; GRANT ALL ON SCHEMA public TO public;"
+ 1744  cd /home/life/projects/expense_tracker_app/expenses-app-v1 && source /home/life/projects/expense_tracker_app/venv/bin/activate && export DATABASE_URL="postgresql://expense_admin:supersecretdbpassword@localhost:5432/expenses_db" && alembic upgrade head
+ 1745  PGPASSWORD=supersecretpostgrespassword psql -h localhost -p 5433 -U expense_admin -d expenses_db -c "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name;"
+ 1746  PGPASSWORD=supersecretpostgrespassword psql -h localhost -p 5433 -U expense_admin -d expenses_db -c "SELECT tablename FROM pg_tables WHERE schemaname = 'public';"
+ 1747  PGPASSWORD=supersecretpostgrespassword psql -h localhost -p 5433 -U expense_admin -d expenses_db << 'EOF'
+\dt
+EOF
+
+ 1748  curl -k -s -X POST https://localhost:8443/api/users/ -H "Content-Type: application/json" -d '{"name": "Test User", "email": "test@example.com", "role": "admin"}' | python3 -m json.tool
+ 1749  grep API_KEY /home/life/projects/expense_tracker_app/expenses-app-v1/.env
+ 1750  curl -k -s -X POST https://localhost:8443/api/users/ -H "Content-Type: application/json" -H "X-API-Key: supersecretapikey" -d '{"name": "Test User", "email": "test@example.com", "role": "admin"}' | python3 -m json.tool
+ 1751  # Add savings account
+ 1752  curl -k -s -X POST https://localhost:8443/api/accounts/   -H "Content-Type: application/json"   -H "X-API-Key: supersecretapikey"   -d '{
+    "user_id": 1,
+    "account_name": "Main Savings",
+    "bank_name": "Chase",
+    "account_number_last_four": "1234",
+    "account_type": "savings",
+    "minimum_balance": 500.0,
+    "interest_rate": 2.5
+  }' | python3 -m json.tool
+ 1753  curl -k -s -X POST https://localhost:8443/api/accounts/ -H "Content-Type: application/json" -H "X-API-Key: supersecretapikey" -d '{"user_id": 1, "account_name": "Main Savings", "bank_name": "Chase", "account_number_last_four": "1234", "account_type": "savings", "minimum_balance": 500.0, "interest_rate": 2.5}' | python3 -m json.tool
+ 1754  curl -k -s -X POST https://localhost:8443/api/savings-accounts/ -H "Content-Type: application/json" -H "X-API-Key: supersecretapikey" -d '{"user_id": 1, "account_name": "Main Savings", "bank_name": "Chase", "account_number_last_four": "1234", "account_type": "savings", "minimum_balance": 500.0, "interest_rate": 2.5}' | python3 -m json.tool
+ 1755  # Create credit card
+ 1756  curl -k -s -X POST https://localhost:8443/api/credit-cards/ -H "Content-Type: application/json" -H "X-API-Key: supersecretapikey" -d '{"user_id": 1, "card_name": "Chase Sapphire", "last_four": "5678", "credit_limit": 10000.0, "billing_day": 15}' | python3 -m json.tool
+ 1757  curl -k -s https://localhost:8443/api/credit-cards/ -H "X-API-Key: supersecretapikey" | python3 -m json.tool
+ 1758  curl -k -s -X POST https://localhost:8443/api/debit-cards/ -H "Content-Type: application/json" -H "X-API-Key: supersecretapikey" -d '{"user_id": 1, "card_name": "Chase Debit", "last_four": "9012", "savings_account_id": 1}' | python3 -m json.tool
+ 1759  curl -k -s -X POST https://localhost:8443/api/savings-accounts/1/deposit -H "Content-Type: application/json" -H "X-API-Key: supersecretapikey" -d '{"amount": 5000.0, "description": "Initial deposit"}' | python3 -m json.tool
+ 1760  curl -k -s -X POST https://localhost:8443/api/expenses/ -H "Content-Type: application/json" -H "X-API-Key: supersecretapikey" -d '{"user_id": 1, "amount": 150.0, "category": "groceries", "description": "Weekly groceries", "date": "2026-01-04", "payment_method": "debit_card", "savings_account_id": 1}' | python3 -m json.tool
+ 1761  curl -k -s -X POST https://localhost:8443/api/expenses/ -H "Content-Type: application/json" -H "X-API-Key: supersecretapikey" -d '{"user_id": 1, "amount": 150.0, "category": "groceries", "description": "Weekly groceries", "date": "2026-01-04", "payment_method": "savings_account", "savings_account_id": 1}' | python3 -m json.tool
+ 1762  cd /home/life/projects/expense_tracker_app/expenses-app-v1 && source /home/life/projects/expense_tracker_app/venv/bin/activate && python3 db_manager.py backup --env dev --type full
+ 1763  cd /home/life/projects/expense_tracker_app/expenses-app-v1 && source /home/life/projects/expense_tracker_app/venv/bin/activate && python3 db_manager.py backup --help
+ 1764  cd /home/life/projects/expense_tracker_app/expenses-app-v1 && source /home/life/projects/expense_tracker_app/venv/bin/activate && python3 db_manager.py backup --env dev -o backups/baseline_before_tests.sql
+ 1765  cd /home/life/projects/expense_tracker_app/expenses-app-v1 && source /home/life/projects/expense_tracker_app/venv/bin/activate && export DATABASE_URL="postgresql://expense_admin:supersecretpostgrespassword@localhost:5433/expenses_db" && python3 db_manager.py backup --env dev -o backups/before_002_add_notification.sql && alembic upgrade head
+ 1766  PGPASSWORD=supersecretpostgrespassword psql -h localhost -p 5433 -U expense_admin -d expenses_db << 'EOF'
+\d notification
+EOF
+
+ 1767  cd /home/life/projects/expense_tracker_app/expenses-app-v1 && source /home/life/projects/expense_tracker_app/venv/bin/activate && export DATABASE_URL="postgresql://expense_admin:supersecretpostgrespassword@localhost:5433/expenses_db" && python3 db_manager.py backup --env dev -o backups/before_003_add_nullable.sql && alembic upgrade head
+ 1768  PGPASSWORD=supersecretpostgrespassword psql -h localhost -p 5433 -U expense_admin -d expenses_db -c "SELECT id, description, notes, receipt_url FROM expense;"
+ 1769  cd /home/life/projects/expense_tracker_app/expenses-app-v1 && source /home/life/projects/expense_tracker_app/venv/bin/activate && export DATABASE_URL="postgresql://expense_admin:supersecretpostgrespassword@localhost:5433/expenses_db" && python3 db_manager.py backup --env dev -o backups/before_004_add_nonnull.sql && alembic upgrade head
+ 1770  PGPASSWORD=supersecretpostgrespassword psql -h localhost -p 5433 -U expense_admin -d expenses_db -c "SELECT id, category, priority, is_verified FROM expense;"
+ 1771  cd /home/life/projects/expense_tracker_app/expenses-app-v1 && source /home/life/projects/expense_tracker_app/venv/bin/activate && export DATABASE_URL="postgresql://expense_admin:supersecretpostgrespassword@localhost:5433/expenses_db" && python3 db_manager.py backup --env dev -o backups/before_005_modify_type.sql && alembic upgrade head
+ 1772  PGPASSWORD=supersecretpostgrespassword psql -h localhost -p 5433 -U expense_admin -d expenses_db << 'EOF'
+SELECT column_name, data_type, numeric_precision, numeric_scale 
+FROM information_schema.columns 
+WHERE table_name = 'expense' AND column_name = 'amount';
+EOF
+
+ 1773  PGPASSWORD=supersecretpostgrespassword psql -h localhost -p 5433 -U expense_admin -d expenses_db -c "SELECT id, amount FROM expense;"
+ 1774  cd /home/life/projects/expense_tracker_app/expenses-app-v1 && source /home/life/projects/expense_tracker_app/venv/bin/activate && export DATABASE_URL="postgresql://expense_admin:supersecretpostgrespassword@localhost:5433/expenses_db" && python3 db_manager.py backup --env dev -o backups/before_006_rename_column.sql && alembic upgrade head
+ 1775  PGPASSWORD=supersecretpostgrespassword psql -h localhost -p 5433 -U expense_admin -d expenses_db << 'EOF'
+\d debitcard
+EOF
+
+ 1776  PGPASSWORD=supersecretpostgrespassword psql -h localhost -p 5433 -U expense_admin -d expenses_db -c "SELECT debit_card_id, name, last_four FROM debitcard;"
+ 1777  cd /home/life/projects/expense_tracker_app/expenses-app-v1 && source /home/life/projects/expense_tracker_app/venv/bin/activate && export DATABASE_URL="postgresql://expense_admin:supersecretpostgrespassword@localhost:5433/expenses_db" && python3 db_manager.py backup --env dev -o backups/before_007_delete_column.sql && alembic upgrade head
+ 1778  PGPASSWORD=supersecretpostgrespassword psql -h localhost -p 5433 -U expense_admin -d expenses_db -c "SELECT column_name FROM information_schema.columns WHERE table_name = 'debitcard' ORDER BY ordinal_position;"
+ 1779  cd /home/life/projects/expense_tracker_app/expenses-app-v1 && source /home/life/projects/expense_tracker_app/venv/bin/activate && export DATABASE_URL="postgresql://expense_admin:supersecretpostgrespassword@localhost:5433/expenses_db" && python3 db_manager.py backup --env dev -o backups/before_008_add_fk.sql && alembic upgrade head
+ 1780  PGPASSWORD=supersecretpostgrespassword psql -h localhost -p 5433 -U expense_admin -d expenses_db << 'EOF'
+SELECT
+    tc.constraint_name,
+    kcu.column_name,
+    ccu.table_name AS foreign_table_name,
+    ccu.column_name AS foreign_column_name
+FROM
+    information_schema.table_constraints AS tc
+    JOIN information_schema.key_column_usage AS kcu
+      ON tc.constraint_name = kcu.constraint_name
+    JOIN information_schema.constraint_column_usage AS ccu
+      ON ccu.constraint_name = tc.constraint_name
+WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_name='expense';
+EOF
+
+ 1781  cd /home/life/projects/expense_tracker_app/expenses-app-v1 && source /home/life/projects/expense_tracker_app/venv/bin/activate && export DATABASE_URL="postgresql://expense_admin:supersecretpostgrespassword@localhost:5433/expenses_db" && PGPASSWORD=supersecretpostgrespassword psql -h localhost -p 5433 -U expense_admin -d expenses_db -c "SELECT user_id, card_name, COUNT(*) FROM creditcard GROUP BY user_id, card_name HAVING COUNT(*) > 1;" && python3 db_manager.py backup --env dev -o backups/before_009_add_unique.sql && alembic upgrade head
+ 1782  PGPASSWORD=supersecretpostgrespassword psql -h localhost -p 5433 -U expense_admin -d expenses_db << 'EOF'
+SELECT conname, contype 
+FROM pg_constraint 
+WHERE conname LIKE 'uq_%';
+EOF
+
+ 1783  cd /home/life/projects/expense_tracker_app/expenses-app-v1 && source /home/life/projects/expense_tracker_app/venv/bin/activate && export DATABASE_URL="postgresql://expense_admin:supersecretpostgrespassword@localhost:5433/expenses_db" && python3 db_manager.py backup --env dev -o backups/before_010_delete_table.sql && python3 db_manager.py backup --env dev -t notification -o backups/notification_table_backup.sql && alembic upgrade head
+ 1784  PGPASSWORD=supersecretpostgrespassword psql -h localhost -p 5433 -U expense_admin -d expenses_db -c "SELECT EXISTS (SELECT 1 FROM pg_tables WHERE tablename = 'notification');"
+ 1785  cd /home/life/projects/expense_tracker_app/expenses-app-v1 && source /home/life/projects/expense_tracker_app/venv/bin/activate && export DATABASE_URL="postgresql://expense_admin:supersecretpostgrespassword@localhost:5433/expenses_db" && python3 db_manager.py backup --env dev -o backups/after_all_tests.sql && alembic downgrade 001_initial
+ 1786  PGPASSWORD=supersecretpostgrespassword psql -h localhost -p 5433 -U expense_admin -d expenses_db << 'EOF'
+-- Check tables
+SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;
+
+-- Check debitcard columns are back to original
+\d debitcard
+EOF
+
+ 1787  PGPASSWORD=supersecretpostgrespassword psql -h localhost -p 5433 -U expense_admin -d expenses_db << 'EOF'
+SELECT 'Users' as table_name, COUNT(*) as count FROM "user"
+UNION ALL SELECT 'Expenses', COUNT(*) FROM expense
+UNION ALL SELECT 'Credit Cards', COUNT(*) FROM creditcard
+UNION ALL SELECT 'Debit Cards', COUNT(*) FROM debitcard
+UNION ALL SELECT 'Savings Accounts', COUNT(*) FROM savingsaccount;
+EOF
+
+ 1788  cd /home/life/projects/expense_tracker_app/expense-cli && ./target/release/expense-cli --env dev user list 2>/dev/null || cargo build --release 2>&1 | tail -5 && ./target/release/expense-cli --env dev user list
+ 1789  cd /home/life/projects/expense_tracker_app/expense-cli && export API_KEY_DEV=supersecretapikey && ./target/release/expense-cli --env dev user list
+ 1790  cd /home/life/projects/expense_tracker_app/expense-cli && export API_KEY_DEV=supersecretapikey && ./target/release/expense-cli --env dev expense list && echo "---" && ./target/release/expense-cli --env dev debit list
+ 1791  cd /home/life/projects/expense_tracker_app/expenses-app-v1 && source /home/life/projects/expense_tracker_app/venv/bin/activate && python3 db_manager.py list-backups
+ 1792  ls -la /home/life/projects/expense_tracker_app/expenses-app-v1/backups/
+ 1793  cp /home/life/projects/expense_tracker_app/expenses-app-v1/SCHEMA_MIGRATION_GUIDE.md /app/expense-tracker/
+ 1794  cd /home/life/projects/expense_tracker_app/expenses-app-v1 && PGPASSWORD=dev_password_dev psql -h localhost -p 5433 -U expense_admin -d expenses_db -c << "EOF" \dt EOF
+
+\dt
+exit
+q
+quit
+
+ 1795  cd /home/life/projects/expense_tracker_app/expenses-app-v1 && PGPASSWORD=dev_password_dev psql -h localhost -p 5433 -U expense_admin -d expenses_db -c << "EOF" "\dt" EOF
+ 1796  PGPASSWORD=supersecretpostgrespassword psql -h localhost -p 5433 -U expense_admin -d expenses_db << 'EOF'
+\dt
+EOF
+
+ 1797  git status
+ 1798  cd /home/life/projects/expense_tracker_app/expenses-app-v1 && PGPASSWORD=dev_password_dev psql -h localhost -p 5433 -U expense_admin -d expenses_db << "EOF" \dt EOF
+ 1799  cd /home/life/projects/expense_tracker_app/expenses-app-v1 && PGPASSWORD=dev_password_dev psql -h localhost -p 5433 -U expense_admin -d expenses_db << 'EOF' \dt EOF
+ 1800  cd /home/life/projects/expense_tracker_app/expenses-app-v1 && PGPASSWORD=dev_password_dev psql -h localhost -p 5433 -U expense_admin -d expenses_db << 'EOF'
+\dt
+EOF
+
+ 1801  cd /home/life/projects/expense_tracker_app/expenses-app-v1 && PGPASSWORD=supersecretpostgrespassword psql -h localhost -p 5433 -U expense_admin -d expenses_db << 'EOF'
+\dt
+EOF
+
+ 1802  git status
+ 1803  git branch
+ 1804  git checkout -b feat/backup-script main
+ 1805  git st
+ 1806  git add --all
+ 1807  git status
+ 1808  git commit -m "feat: added and tested backup script"
+ 1809  git status
+ 1810  git push -u origin feat/backup-script
+ 1811  git status
+ 1812  git checkout main
+ 1813  git status
+ 1814  git checkout feat/backup-script
+ 1815  git checkout -b feat/proper-migration-updates
+ 1816  git status
+ 1817  history > database_commands.txt

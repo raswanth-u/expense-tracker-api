@@ -1,7 +1,7 @@
 """Modify column type: amount from float to numeric(12,2)
 
-Revision ID: 005_modify_column_type
-Revises: 004_add_nonnull_column
+Revision ID: 002_modify_column_type
+Revises: 001_initial_schema
 Create Date: 2026-01-04
 
 TEST: Modifying column type (High Risk)
@@ -23,8 +23,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '005_modify_column_type'
-down_revision: str | Sequence[str] | None = '004_add_nonnull_column'
+revision: str = '002_modify_column_type'
+down_revision: str | Sequence[str] | None = '001_initial'
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
