@@ -1,0 +1,16 @@
+# Database backups - do not commit to version control
+# This directory contains database dump files
+
+# Ignore all files
+*
+
+# But not this .gitignore
+!.gitignore
+
+# Common backup file extensions (explicitly ignored)
+*.sql
+*.dump
+*.sql.gz
+*.dump.gz
+*.sha256
+*.backup
