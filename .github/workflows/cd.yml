@@ -66,6 +66,108 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  # # ============================================
+  # # JOB 3: Deploy to Server
+  # # ============================================
+  # deploy:
+  #   name: Deploy to Production
+  #   runs-on: ubuntu-latest
+  #   needs: build-and-push
+  #   environment: production  # Requires manual approval in GitHub settings
+    
+  #   steps:
+  #     - name: Connect to Tailscale
+  #       uses: tailscale/github-action@v2
+  #       with:
+  #         authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
+  #         version: 1.56.1
+  #         args: --ssh
+      
+  #     - name: Verify Tailscale connection
+  #       run: |
+  #         echo "Tailscale status:"
+  #         tailscale status
+  #         echo "Testing connection to server..."
+  #         ping -c 3 ${{ secrets.SERVER_HOST }} || echo "Ping failed, but SSH might still work"
+
+      # - name: Deploy via SSH
+      #   uses: appleboy/ssh-action@v1.0.3
+      #   with:
+      #     host: ${{ secrets.SERVER_HOST }}
+      #     username: ${{ secrets.SERVER_USER }}
+      #     key: ${{ secrets.SERVER_SSH_KEY }}
+      #     debug: true
+      #     command_timeout: 30m
+      #     script_stop: true  # ← Stop on first error
+      #     script: |
+      #       set -e
+      #       set -x
+
+      #       echo "=== Starting deployment at $(date) ==="
+      #       cd /app/expense-tracker
+            
+      #       echo "=== Logging into Docker registry ==="
+      #       echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            
+      #       # Pull latest image
+      #       echo "=== Pulling latest image ==="
+      #       docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest 2>&1 | \
+      #         grep -E 'Pulling|Waiting|Downloading|Extracting|Pull complete' || true
+            
+      #       # Stop old containers
+      #       echo "=== Stopping old containers ==="
+      #       docker compose down 2>&1 | \
+      #         grep -E 'Stopping|Removing' || true
+            
+      #       # Start new containers
+      #       echo "=== Starting new containers ==="
+      #       docker compose up -d 2>&1 | \
+      #         grep -E 'Creating|Starting|Recreating' || true
+
+      #       # Wait for services to be ready
+      #       echo "=== Waiting for services (15s) ==="
+      #       echo "Waiting for services to start..."
+      #       sleep 15
+            
+      #       # Health check
+      #       # echo "=== Running health check ==="
+      #       # curl -f https://localhost/health -k || {
+      #       #   echo "Health check failed!"
+      #       #   docker compose logs api
+      #       #   exit 1
+      #       # }
+
+      #       # Progressive health check
+      #       echo "Waiting for service to be ready..."
+      #       for i in {1..30}; do
+      #         echo "Health check attempt $i/30..."
+      #         if curl -f https://localhost/health -k --max-time 5; then
+      #           echo "✅ Service is healthy!"
+      #           break
+      #         fi
+      #         if [ $i -eq 30 ]; then
+      #           echo "❌ Health check timeout!"
+      #           docker compose logs --tail=50 api
+      #           exit 1
+      #         fi
+      #         sleep 5
+      #       done
+
+      #       # Clean up old images
+      #       echo "=== Cleaning up old images ==="
+      #       docker image prune -f
+            
+      #       echo "Deployment successful!"
+
+      
+      # - name: Notify on success
+      #   if: success()
+      #   run: echo "✅ Deployed successfully!"
+
+      # - name: Notify on failure
+      #   if: failure()
+      #   run: echo "❌ Deployment failed!"
+
   # ============================================
   # JOB 3: Deploy to Server
   # ============================================
@@ -73,7 +175,7 @@ jobs:
     name: Deploy to Production
     runs-on: ubuntu-latest
     needs: build-and-push
-    environment: production  # Requires manual approval in GitHub settings
+    environment: production
     
     steps:
       - name: Connect to Tailscale
@@ -89,59 +191,47 @@ jobs:
           tailscale status
           echo "Testing connection to server..."
           ping -c 3 ${{ secrets.SERVER_HOST }} || echo "Ping failed, but SSH might still work"
-
+      
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+      
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          debug: true
-          command_timeout: 30m
-          script_stop: true  # ← Stop on first error
-          script: |
+        id: deploy
+        timeout-minutes: 30
+        run: |
+          ssh -o ConnectTimeout=10 \
+              -o ServerAliveInterval=60 \
+              -o ServerAliveCountMax=3 \
+              ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} bash << 'ENDSSH'
             set -e
             set -x
-
+            
             echo "=== Starting deployment at $(date) ==="
             cd /app/expense-tracker
             
             echo "=== Logging into Docker registry ==="
-            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             
-            # Pull latest image
             echo "=== Pulling latest image ==="
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest 2>&1 | \
-              grep -E 'Pulling|Waiting|Downloading|Extracting|Pull complete' || true
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
             
-            # Stop old containers
             echo "=== Stopping old containers ==="
-            docker compose down 2>&1 | \
-              grep -E 'Stopping|Removing' || true
+            docker compose down
             
-            # Start new containers
             echo "=== Starting new containers ==="
-            docker compose up -d 2>&1 | \
-              grep -E 'Creating|Starting|Recreating' || true
-
-            # Wait for services to be ready
-            echo "=== Waiting for services (15s) ==="
-            echo "Waiting for services to start..."
+            docker compose up -d
+            
+            echo "=== Waiting for services to start ==="
             sleep 15
             
-            # Health check
-            # echo "=== Running health check ==="
-            # curl -f https://localhost/health -k || {
-            #   echo "Health check failed!"
-            #   docker compose logs api
-            #   exit 1
-            # }
-
-            # Progressive health check
-            echo "Waiting for service to be ready..."
+            echo "=== Health check ==="
             for i in {1..30}; do
               echo "Health check attempt $i/30..."
-              if curl -f https://localhost/health -k --max-time 5; then
+              if curl -f https://localhost/health -k --max-time 5 2>&1; then
                 echo "✅ Service is healthy!"
                 break
               fi
@@ -152,48 +242,17 @@ jobs:
               fi
               sleep 5
             done
-
-            # Clean up old images
+            
             echo "=== Cleaning up old images ==="
             docker image prune -f
             
-            echo "Deployment successful!"
-
-      # - name: Deploy via SSH
-      #   run: |
-      #     # Setup SSH
-      #     mkdir -p ~/.ssh
-      #     echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
-      #     chmod 600 ~/.ssh/id_rsa
-      #     ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
-          
-      #     # Run deployment with real-time output
-      #     ssh -v ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'ENDSSH'
-      #       set -ex
-      #       cd /app/expense-tracker
-            
-      #       echo "Logging into registry..."
-      #       echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            
-      #       echo "Pulling image..."
-      #       docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            
-      #       echo "Restarting services..."
-      #       docker compose down
-      #       docker compose up -d
-            
-      #       sleep 15
-            
-      #       curl -f https://localhost/health -k || exit 1
-            
-      #       docker image prune -f
-      #       echo "Done!"
-      #     ENDSSH
-
+            echo "=== Deployment successful at $(date) ==="
+          ENDSSH
+      
       - name: Notify on success
         if: success()
         run: echo "✅ Deployed successfully!"
-
+      
       - name: Notify on failure
         if: failure()
         run: echo "❌ Deployment failed!"
