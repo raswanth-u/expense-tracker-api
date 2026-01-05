@@ -96,37 +96,99 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
+          debug: true
+          command_timeout: 30m
+          script_stop: true  # ← Stop on first error
           script: |
             set -e
+            set -x
+
+            echo "=== Starting deployment at $(date) ==="
             cd /app/expense-tracker
             
-            # Pull latest image
+            echo "=== Logging into Docker registry ==="
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             
             # Pull latest image
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            echo "=== Pulling latest image ==="
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest 2>&1 | \
+              grep -E 'Pulling|Waiting|Downloading|Extracting|Pull complete' || true
             
             # Stop old containers
-            docker compose down
+            echo "=== Stopping old containers ==="
+            docker compose down 2>&1 | \
+              grep -E 'Stopping|Removing' || true
             
             # Start new containers
-            docker compose up -d
+            echo "=== Starting new containers ==="
+            docker compose up -d 2>&1 | \
+              grep -E 'Creating|Starting|Recreating' || true
 
             # Wait for services to be ready
+            echo "=== Waiting for services (15s) ==="
             echo "Waiting for services to start..."
             sleep 15
             
             # Health check
-            curl -f https://localhost/health -k || {
-              echo "Health check failed!"
-              docker compose logs api
-              exit 1
-            }
+            # echo "=== Running health check ==="
+            # curl -f https://localhost/health -k || {
+            #   echo "Health check failed!"
+            #   docker compose logs api
+            #   exit 1
+            # }
+
+            # Progressive health check
+            echo "Waiting for service to be ready..."
+            for i in {1..30}; do
+              echo "Health check attempt $i/30..."
+              if curl -f https://localhost/health -k --max-time 5; then
+                echo "✅ Service is healthy!"
+                break
+              fi
+              if [ $i -eq 30 ]; then
+                echo "❌ Health check timeout!"
+                docker compose logs --tail=50 api
+                exit 1
+              fi
+              sleep 5
+            done
 
             # Clean up old images
+            echo "=== Cleaning up old images ==="
             docker image prune -f
             
             echo "Deployment successful!"
+
+      # - name: Deploy via SSH
+      #   run: |
+      #     # Setup SSH
+      #     mkdir -p ~/.ssh
+      #     echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
+      #     chmod 600 ~/.ssh/id_rsa
+      #     ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+          
+      #     # Run deployment with real-time output
+      #     ssh -v ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'ENDSSH'
+      #       set -ex
+      #       cd /app/expense-tracker
+            
+      #       echo "Logging into registry..."
+      #       echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            
+      #       echo "Pulling image..."
+      #       docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            
+      #       echo "Restarting services..."
+      #       docker compose down
+      #       docker compose up -d
+            
+      #       sleep 15
+            
+      #       curl -f https://localhost/health -k || exit 1
+            
+      #       docker image prune -f
+      #       echo "Done!"
+      #     ENDSSH
 
       - name: Notify on success
         if: success()
