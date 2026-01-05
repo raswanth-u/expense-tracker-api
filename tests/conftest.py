@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, date
 
 import pytest
 from fastapi.testclient import TestClient
@@ -73,7 +74,7 @@ def test_budget_fixture(client: TestClient, auth_headers: dict, test_user: dict)
     """Create a test budget and return the response."""
     response = client.post(
         "/budgets/",
-        json={"user_id": test_user["id"], "category": "Food", "amount": 500.0, "month": "2024-12"},
+        json={"user_id": test_user["id"], "category": "Food", "amount": "500.00", "month": "2026-01"},
         headers=auth_headers,
     )
     return response.json()
@@ -91,7 +92,7 @@ def test_card_fixture(client: TestClient, auth_headers: dict, test_user: dict):
             "user_id": test_user["id"],
             "card_name": "Test Card",
             "last_four": "1234",
-            "credit_limit": 5000.0,
+            "credit_limit": "5000.00",
             "billing_day": 15,
         },
         headers=auth_headers,
@@ -109,10 +110,10 @@ def test_expense_fixture(client: TestClient, auth_headers: dict, test_user: dict
         "/expenses/",
         json={
             "user_id": test_user["id"],
-            "amount": 50.0,
+            "amount": "50.00",
             "category": "Food",
             "description": "Test expense",
-            "date": "2024-12-15",
+            "date": "2026-01-04",
             "payment_method": "cash",
         },
         headers=auth_headers,

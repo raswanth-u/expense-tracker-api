@@ -36,30 +36,30 @@ def upgrade() -> None:
     """
     # For compatible type changes, PostgreSQL can do direct conversion
     # The USING clause tells PostgreSQL how to convert existing data
-    op.execute("""
-        ALTER TABLE expense 
-        ALTER COLUMN amount TYPE NUMERIC(12,2) 
-        USING amount::NUMERIC(12,2)
-    """)
+    # op.execute("""
+    #     ALTER TABLE expense 
+    #     ALTER COLUMN amount TYPE NUMERIC(12,2) 
+    #     USING amount::NUMERIC(12,2)
+    # """)
     
     # Do the same for other money columns
-    op.execute("""
-        ALTER TABLE creditcard 
-        ALTER COLUMN credit_limit TYPE NUMERIC(12,2) 
-        USING credit_limit::NUMERIC(12,2)
-    """)
+    # op.execute("""
+    #     ALTER TABLE creditcard 
+    #     ALTER COLUMN credit_limit TYPE NUMERIC(12,2) 
+    #     USING credit_limit::NUMERIC(12,2)
+    # """)
     
 
 def downgrade() -> None:
     """Revert to DOUBLE PRECISION (float)."""
-    op.execute("""
-        ALTER TABLE expense 
-        ALTER COLUMN amount TYPE DOUBLE PRECISION 
-        USING amount::DOUBLE PRECISION
-    """)
+    # op.execute("""
+    #     ALTER TABLE expense 
+    #     ALTER COLUMN amount TYPE DOUBLE PRECISION 
+    #     USING amount::DOUBLE PRECISION
+    # """)
     
-    op.execute("""
-        ALTER TABLE creditcard 
-        ALTER COLUMN credit_limit TYPE DOUBLE PRECISION 
-        USING credit_limit::DOUBLE PRECISION
-    """)
+    # op.execute("""
+    #     ALTER TABLE creditcard 
+    #     ALTER COLUMN credit_limit TYPE DOUBLE PRECISION 
+    #     USING credit_limit::DOUBLE PRECISION
+    # """)

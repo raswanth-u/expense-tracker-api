@@ -1,6 +1,6 @@
 """Utility functions for the expense tracker API."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, date, timedelta
 from typing import TypeVar
 
 from dateutil.relativedelta import relativedelta
@@ -15,7 +15,7 @@ T = TypeVar("T", bound=SQLModel)
 # ============================================
 
 
-def get_month_date_range(month: str) -> tuple[str, str]:
+def get_month_date_range(month: str) -> tuple[date, date]:
     """
     Get start and end dates for a month.
 
@@ -23,21 +23,21 @@ def get_month_date_range(month: str) -> tuple[str, str]:
         month: Month string in YYYY-MM format
 
     Returns:
-        Tuple of (start_date, end_date) in YYYY-MM-DD format
+        Tuple of (start_date, end_date) as date objects
     """
     year, month_num = map(int, month.split("-"))
-    start_date = f"{month}-01"
+    start_date = date(year, month_num, 1)
 
     if month_num == 12:
-        end_date = f"{year}-12-31"
+        end_date = date(year, 12, 31)
     else:
-        next_month = datetime(year, month_num + 1, 1)
-        end_date = (next_month - timedelta(days=1)).strftime("%Y-%m-%d")
+        next_month = date(year, month_num + 1, 1)
+        end_date = next_month - timedelta(days=1)
 
     return start_date, end_date
 
 
-def get_month_exclusive_range(month: str) -> tuple[str, str]:
+def get_month_exclusive_range(month: str) -> tuple[date, date]:
     """
     Get start and exclusive end dates for a month (for < comparisons).
 
@@ -45,15 +45,15 @@ def get_month_exclusive_range(month: str) -> tuple[str, str]:
         month: Month string in YYYY-MM format
 
     Returns:
-        Tuple of (start_date, end_date_exclusive) in YYYY-MM-DD format
+        Tuple of (start_date, end_date_exclusive) as date objects
     """
     year, month_num = map(int, month.split("-"))
-    start_date = f"{month}-01"
+    start_date = date(year, month_num, 1)
 
     if month_num == 12:
-        end_date = f"{year + 1}-01-01"
+        end_date = date(year + 1, 1, 1)
     else:
-        end_date = f"{year}-{month_num + 1:02d}-01"
+        end_date = date(year, month_num + 1, 1)
 
     return start_date, end_date
 
@@ -71,18 +71,18 @@ def parse_month(month: str) -> tuple[int, int]:
 
 
 def calculate_next_occurrence(
-    current_date: str,
+    current_date: date,
     frequency: str,
     interval: int,
     day_of_week: int | None = None,
     day_of_month: int | None = None,
     month_of_year: int | None = None
-) -> str:
+) -> date:
     """
     Calculate the next occurrence date based on frequency and parameters.
 
     Args:
-        current_date: Current date in YYYY-MM-DD format
+        current_date: Current date as a date object
         frequency: One of "daily", "weekly", "monthly", "yearly", "custom"
         interval: Interval multiplier
         day_of_week: 0-6 for Monday-Sunday (for weekly)
@@ -90,12 +90,15 @@ def calculate_next_occurrence(
         month_of_year: 1-12 (for yearly)
 
     Returns:
-        Next occurrence date in YYYY-MM-DD format
+        Next occurrence date as a date object
     """
-    try:
-        current = datetime.strptime(current_date, "%Y-%m-%d")
-    except ValueError:
-        current = datetime.now()
+    if isinstance(current_date, str):
+        try:
+            current = datetime.strptime(current_date, "%Y-%m-%d").date()
+        except ValueError:
+            current = datetime.now().date()
+    else:
+        current = current_date
 
     if frequency == "daily":
         next_date = current + timedelta(days=interval)
@@ -109,16 +112,19 @@ def calculate_next_occurrence(
             next_date = next_date + timedelta(days=days_ahead)
 
     elif frequency == "monthly":
-        next_date = current + relativedelta(months=interval)
+        next_dt = datetime.combine(current, datetime.min.time()) + relativedelta(months=interval)
+        next_date = next_dt.date()
         if day_of_month is not None:
             try:
                 next_date = next_date.replace(day=day_of_month)
             except ValueError:
                 # Handle months with fewer days
-                next_date = (next_date.replace(day=1) + relativedelta(months=1)) - timedelta(days=1)
+                next_dt = (datetime.combine(next_date.replace(day=1), datetime.min.time()) + relativedelta(months=1))
+                next_date = (next_dt - timedelta(days=1)).date()
 
     elif frequency == "yearly":
-        next_date = current + relativedelta(years=interval)
+        next_dt = datetime.combine(current, datetime.min.time()) + relativedelta(years=interval)
+        next_date = next_dt.date()
         if month_of_year is not None and day_of_month is not None:
             try:
                 next_date = next_date.replace(month=month_of_year, day=day_of_month)
@@ -131,17 +137,17 @@ def calculate_next_occurrence(
     else:
         next_date = current + timedelta(days=1)
 
-    return next_date.strftime("%Y-%m-%d")
+    return next_date
 
 
-def now_iso() -> str:
-    """Get current datetime as ISO format string."""
-    return datetime.now().isoformat()
+def now_iso() -> datetime:
+    """Get current datetime."""
+    return datetime.now()
 
 
-def today_str() -> str:
-    """Get today's date as YYYY-MM-DD string."""
-    return datetime.now().strftime("%Y-%m-%d")
+def today_str() -> date:
+    """Get today's date."""
+    return datetime.now().date()
 
 
 def current_month() -> str:
@@ -235,9 +241,11 @@ def group_by_field(items: list, field: str) -> dict[str, float]:
     return result
 
 
-def calculate_percentage(part: float, total: float) -> float:
+def calculate_percentage(part, total) -> float:
     """Calculate percentage safely, returning 0 if total is 0."""
-    return round((part / total * 100) if total > 0 else 0, 2)
+    if total <= 0:
+        return 0.0
+    return round(float(part) / float(total) * 100, 2)
 
 
 def round_dict_values(d: dict, decimals: int = 2) -> dict:

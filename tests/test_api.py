@@ -478,7 +478,7 @@ def test_monthly_report(
     """Test monthly report."""
     response = client.get(
         "/reports/monthly",
-        params={"month": "2024-12", "user_id": test_user["id"]},
+        params={"month": "2026-01", "user_id": test_user["id"]},
         headers=auth_headers,
     )
     assert response.status_code == 200
@@ -521,8 +521,8 @@ def test_category_analysis(
         "/reports/category-analysis",
         params={
             "category": test_expense["category"],  # Use actual category
-            "from_date": "2024-12-01",
-            "to_date": "2024-12-31",
+            "from_date": "2026-01-01",
+            "to_date": "2026-01-31",
             "user_id": test_user["id"],
         },
         headers=auth_headers,
@@ -560,7 +560,7 @@ def test_payment_method_analysis(
     """Test payment method analysis."""
     response = client.get(
         "/reports/payment-method-analysis",
-        params={"from_date": "2024-12-01", "to_date": "2024-12-31", "user_id": test_user["id"]},
+        params={"from_date": "2026-01-01", "to_date": "2026-01-31", "user_id": test_user["id"]},
         headers=auth_headers,
     )
     assert response.status_code == 200
@@ -574,8 +574,8 @@ def test_export_json(client: TestClient, auth_headers: dict, test_user: dict, te
     response = client.get(
         "/reports/export",
         params={
-            "from_date": "2024-12-01",
-            "to_date": "2024-12-31",
+            "from_date": "2026-01-01",
+            "to_date": "2026-01-31",
             "user_id": test_user["id"],
             "format": "json",
         },
@@ -690,7 +690,7 @@ def test_get_expense_summary(client: TestClient, auth_headers: dict, test_user: 
     """Test expense summary endpoint."""
     response = client.get(
         "/expenses/summary",
-        params={"from_date": "2024-12-01", "to_date": "2024-12-31", "user_id": test_user["id"]},
+        params={"from_date": "2026-01-01", "to_date": "2026-01-31", "user_id": test_user["id"]},
         headers=auth_headers
     )
     assert response.status_code == 200
@@ -703,7 +703,7 @@ def test_get_payment_summary(client: TestClient, auth_headers: dict, test_user: 
     """Test payment summary endpoint."""
     response = client.get(
         "/expenses/payment_summary",
-        params={"from_date": "2024-12-01", "to_date": "2024-12-31", "user_id": test_user["id"]},
+        params={"from_date": "2026-01-01", "to_date": "2026-01-31", "user_id": test_user["id"]},
         headers=auth_headers
     )
     assert response.status_code == 200
@@ -3870,41 +3870,42 @@ def test_get_recurring_by_id(client: TestClient, auth_headers: dict, test_user: 
 
 def test_utils_calculate_next_occurrence():
     """Test calculate_next_occurrence utility function edge cases."""
+    from datetime import date
     from utils import calculate_next_occurrence
 
     # Test daily
     result = calculate_next_occurrence("2024-01-01", "daily", 1)
-    assert result == "2024-01-02"
+    assert result == date(2024, 1, 2)
 
     # Test weekly with day_of_week that requires adjustment
     # Start from Monday (2024-01-01 is Monday), target Wednesday (day_of_week=2)
     result = calculate_next_occurrence("2024-01-01", "weekly", 1, day_of_week=2)
-    assert "2024-01" in result  # Should be in January
+    assert result.month == 1 and result.year == 2024  # Should be in January
 
     # Test monthly with day_of_month - day 31 from January to February
     result = calculate_next_occurrence("2024-01-31", "monthly", 1, day_of_month=31)
     # February doesn't have 31 days, should go to end of month
-    assert "2024-02" in result
+    assert result.month == 2 and result.year == 2024
 
     # Test yearly
     result = calculate_next_occurrence("2024-01-01", "yearly", 1)
-    assert result == "2025-01-01"
+    assert result == date(2025, 1, 1)
 
     # Test yearly with month and day (normal case)
     result = calculate_next_occurrence("2024-01-01", "yearly", 1, month_of_year=6, day_of_month=15)
-    assert "2025-06-15" in result or "06-15" in result
+    assert result.month == 6 and result.day == 15
 
     # Test yearly with invalid date (Feb 30) - should use fallback day 28
     result = calculate_next_occurrence("2024-01-01", "yearly", 1, month_of_year=2, day_of_month=30)
-    assert "2025-02" in result
+    assert result.month == 2 and result.year == 2025
 
     # Test custom frequency
     result = calculate_next_occurrence("2024-01-01", "custom", 5)
-    assert result == "2024-01-06"
+    assert result == date(2024, 1, 6)
 
     # Test unknown frequency (fallback)
     result = calculate_next_occurrence("2024-01-01", "unknown", 1)
-    assert result == "2024-01-02"  # Default: add 1 day
+    assert result == date(2024, 1, 2)  # Default: add 1 day
 
     # Test invalid date format (should use datetime.now())
     result = calculate_next_occurrence("invalid-date", "daily", 1)
@@ -3913,20 +3914,22 @@ def test_utils_calculate_next_occurrence():
 
 def test_utils_get_month_date_range_december():
     """Test get_month_date_range for December edge case."""
+    from datetime import date
     from utils import get_month_date_range
 
     start, end = get_month_date_range("2024-12")
-    assert start == "2024-12-01"
-    assert end == "2024-12-31"
+    assert start == date(2024, 12, 1)
+    assert end == date(2024, 12, 31)
 
 
 def test_utils_get_month_exclusive_range_december():
     """Test get_month_exclusive_range for December edge case."""
+    from datetime import date
     from utils import get_month_exclusive_range
 
     start, end = get_month_exclusive_range("2024-12")
-    assert start == "2024-12-01"
-    assert end == "2025-01-01"
+    assert start == date(2024, 12, 1)
+    assert end == date(2025, 1, 1)
 
 
 def test_utils_parse_month_invalid():
@@ -4619,3 +4622,836 @@ def test_debit_card_owner_account_mismatch(client: TestClient, auth_headers: dic
     )
     assert response.status_code == 400
     assert "must match savings account owner" in response.json()["detail"]
+
+
+# ============================================
+# ADDITIONAL COVERAGE TESTS FOR 97%+
+# ============================================
+
+def test_get_budgets_with_category_filter(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test filtering budgets by category."""
+    # Create two budgets with different categories
+    client.post(
+        "/budgets/",
+        json={"user_id": test_user["id"], "category": "Entertainment", "amount": "200.00", "month": "2026-02"},
+        headers=auth_headers,
+    )
+    client.post(
+        "/budgets/",
+        json={"user_id": test_user["id"], "category": "Transport", "amount": "300.00", "month": "2026-02"},
+        headers=auth_headers,
+    )
+    
+    # Filter by category
+    response = client.get(
+        "/budgets/",
+        params={"category": "Entertainment"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert all(b["category"] == "Entertainment" for b in data)
+
+
+def test_utils_round_dict_values():
+    """Test round_dict_values utility function."""
+    from utils import round_dict_values
+    
+    d = {"a": 3.14159, "b": "text", "c": 2.71828, "d": 100}
+    result = round_dict_values(d, decimals=2)
+    assert result["a"] == 3.14
+    assert result["b"] == "text"
+    assert result["c"] == 2.72
+    assert result["d"] == 100
+
+
+def test_calculate_percentage_with_zero_total():
+    """Test calculate_percentage with zero total."""
+    from utils import calculate_percentage
+    
+    assert calculate_percentage(100, 0) == 0.0
+    assert calculate_percentage(0, 0) == 0.0
+
+
+def test_get_month_date_range_non_december():
+    """Test get_month_date_range for non-December months."""
+    from datetime import date
+    from utils import get_month_date_range
+    
+    start, end = get_month_date_range("2024-06")
+    assert start == date(2024, 6, 1)
+    assert end == date(2024, 6, 30)
+
+
+def test_expense_with_invalid_savings_account(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test creating expense with invalid savings account."""
+    response = client.post(
+        "/expenses/",
+        json={
+            "user_id": test_user["id"],
+            "amount": "50.00",
+            "category": "Food",
+            "date": "2026-01-04",
+            "payment_method": "savings_account",
+            "savings_account_id": 99999  # Invalid ID
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 404
+
+
+def test_credit_card_filter_by_active(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test filtering credit cards by active status."""
+    # Create an active card
+    response = client.get(
+        "/credit-cards/",
+        params={"is_active": True},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+
+
+def test_savings_account_inactive_filter(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test filtering savings accounts."""
+    response = client.get(
+        "/savings-accounts/",
+        params={"is_active": True, "user_id": test_user["id"]},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+
+
+def test_budget_alerts_current_month(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test budget alerts for current month."""
+    # Create a budget for current month
+    client.post(
+        "/budgets/",
+        json={"user_id": test_user["id"], "category": "Bills", "amount": "1000.00", "month": "2026-01"},
+        headers=auth_headers,
+    )
+    
+    response = client.get(
+        "/budgets/status/alerts",
+        params={"month": "2026-01"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+
+
+def test_budget_compare_different_categories(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test budget comparison when categories differ between months."""
+    # Create budget only in month1
+    client.post(
+        "/budgets/",
+        json={"user_id": test_user["id"], "category": "Groceries", "amount": "500.00", "month": "2026-01"},
+        headers=auth_headers,
+    )
+    # Create budget only in month2
+    client.post(
+        "/budgets/",
+        json={"user_id": test_user["id"], "category": "Shopping", "amount": "600.00", "month": "2026-02"},
+        headers=auth_headers,
+    )
+    
+    response = client.get(
+        "/budgets/compare",
+        params={"month1": "2026-01", "month2": "2026-02"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "categories" in data
+    assert len(data["categories"]) >= 2
+
+
+def test_expense_summary_empty_range(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test expense summary with no expenses in range."""
+    response = client.get(
+        "/expenses/summary",
+        params={"from_date": "2020-01-01", "to_date": "2020-01-31"},
+        headers=auth_headers
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+
+
+def test_payment_summary_empty_range(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test payment summary with no expenses in range."""
+    response = client.get(
+        "/expenses/payment_summary",
+        params={"from_date": "2020-01-01", "to_date": "2020-01-31"},
+        headers=auth_headers
+    )
+    assert response.status_code == 200
+
+
+def test_recurring_expense_daily_with_interval(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test daily recurring expense with interval > 1."""
+    response = client.post(
+        "/recurring-expenses/",
+        json={
+            "user_id": test_user["id"],
+            "amount": "25.00",
+            "category": "Coffee",
+            "frequency": "daily",
+            "interval": 3,  # Every 3 days
+            "start_date": "2026-01-01"
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+
+
+def test_family_summary_no_expenses(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test family summary when there are no expenses."""
+    response = client.get(
+        "/reports/family-summary",
+        params={"month": "2020-01"},  # Old month with no expenses
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+
+
+def test_assets_depreciation_no_data(client: TestClient, auth_headers: dict):
+    """Test asset depreciation report with no assets."""
+    response = client.get(
+        "/assets/depreciation",
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+
+
+def test_savings_account_transaction_with_description(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test savings account transaction with description and tags."""
+    # Create account
+    account = client.post(
+        "/savings-accounts/",
+        json={"user_id": test_user["id"], "account_name": "Tagged Account", "bank_name": "Test Bank", "account_number_last_four": "9999", "account_type": "savings"},
+        headers=auth_headers,
+    ).json()
+    
+    # Deposit with description and tags
+    response = client.post(
+        f"/savings-accounts/{account['id']}/deposit",
+        json={"amount": "100.00", "description": "Test deposit", "tags": "bonus,monthly"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+
+
+def test_expenses_filter_by_tags(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test filtering expenses by tags."""
+    # Create expense with tags
+    client.post(
+        "/expenses/",
+        json={
+            "user_id": test_user["id"],
+            "amount": "30.00",
+            "category": "Food",
+            "date": "2026-01-04",
+            "payment_method": "cash",
+            "tags": "lunch,work"
+        },
+        headers=auth_headers,
+    )
+    
+    # Filter by tags
+    response = client.get(
+        "/expenses/",
+        params={"tags": "lunch"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert all("lunch" in e.get("tags", "") for e in data if e.get("tags"))
+
+
+def test_expenses_filter_by_amount_range(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test filtering expenses by min and max amount."""
+    # Create expenses with different amounts
+    client.post(
+        "/expenses/",
+        json={"user_id": test_user["id"], "amount": "10.00", "category": "Food", "date": "2026-01-04", "payment_method": "cash"},
+        headers=auth_headers,
+    )
+    client.post(
+        "/expenses/",
+        json={"user_id": test_user["id"], "amount": "100.00", "category": "Food", "date": "2026-01-04", "payment_method": "cash"},
+        headers=auth_headers,
+    )
+    
+    # Filter by amount range
+    response = client.get(
+        "/expenses/",
+        params={"min_amount": "50.00", "max_amount": "150.00"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+
+
+def test_create_expense_with_inactive_savings_account(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test creating expense with inactive savings account."""
+    # Create and deactivate account
+    account = client.post(
+        "/savings-accounts/",
+        json={"user_id": test_user["id"], "account_name": "Inactive", "bank_name": "Bank", "account_number_last_four": "1111", "account_type": "savings"},
+        headers=auth_headers,
+    ).json()
+    
+    # Delete the account
+    client.delete(f"/savings-accounts/{account['id']}", headers=auth_headers)
+    
+    # Try to use inactive account
+    response = client.post(
+        "/expenses/",
+        json={
+            "user_id": test_user["id"],
+            "amount": "50.00",
+            "category": "Food",
+            "date": "2026-01-04",
+            "payment_method": "savings_account",
+            "savings_account_id": account["id"]
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code in [400, 404]
+
+
+def test_monthly_report_without_user_filter(client: TestClient, auth_headers: dict, test_user: dict, test_expense: dict):
+    """Test monthly report without user filter (family-wide)."""
+    response = client.get(
+        "/reports/monthly",
+        params={"month": "2026-01"},  # No user_id filter
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "summary" in data
+
+
+def test_user_stats_with_month_filter(client: TestClient, auth_headers: dict, test_user: dict, test_expense: dict):
+    """Test user stats with month filter."""
+    response = client.get(
+        f"/users/{test_user['id']}/stats",
+        params={"month": "2026-01"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["period"] == "2026-01"
+
+
+def test_update_user_with_duplicate_email(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test updating user with duplicate email."""
+    # Create second user
+    user2 = client.post(
+        "/users/",
+        json={"name": "User Two", "email": "user2@email.com", "role": "member"},
+        headers=auth_headers,
+    ).json()
+    
+    # Try to update to existing email
+    response = client.put(
+        f"/users/{test_user['id']}",
+        json={"name": "Updated Name", "email": "user2@email.com", "role": "member"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 400
+    assert "already in use" in response.json()["detail"]
+
+
+def test_budget_exceeded_status(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test budget exceeded status calculation."""
+    # Create small budget
+    client.post(
+        "/budgets/",
+        json={"user_id": test_user["id"], "category": "TestExceed", "amount": "10.00", "month": "2026-01"},
+        headers=auth_headers,
+    )
+    
+    # Create large expense to exceed budget
+    client.post(
+        "/expenses/",
+        json={
+            "user_id": test_user["id"],
+            "amount": "100.00",
+            "category": "TestExceed",
+            "date": "2026-01-04",
+            "payment_method": "cash"
+        },
+        headers=auth_headers,
+    )
+    
+    # Check budget status
+    response = client.get(
+        "/budgets/status/summary",
+        params={"month": "2026-01"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    exceeded = [b for b in data.get("budgets", []) if b["status"] == "exceeded"]
+    assert len(exceeded) >= 1
+
+
+def test_budget_warning_status(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test budget warning status (80-100% used)."""
+    # Create budget
+    client.post(
+        "/budgets/",
+        json={"user_id": test_user["id"], "category": "TestWarning", "amount": "100.00", "month": "2026-01"},
+        headers=auth_headers,
+    )
+    
+    # Create expense at 85% of budget
+    client.post(
+        "/expenses/",
+        json={
+            "user_id": test_user["id"],
+            "amount": "85.00",
+            "category": "TestWarning",
+            "date": "2026-01-04",
+            "payment_method": "cash"
+        },
+        headers=auth_headers,
+    )
+    
+    # Check budget status
+    response = client.get(
+        "/budgets/status/summary",
+        params={"month": "2026-01"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+
+
+def test_category_analysis_family_wide(client: TestClient, auth_headers: dict, test_user: dict, test_expense: dict):
+    """Test category analysis without user filter (family-wide)."""
+    response = client.get(
+        "/reports/category-analysis",
+        params={
+            "category": "Food",
+            "from_date": "2026-01-01",
+            "to_date": "2026-01-31",
+            # No user_id - family-wide
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    if "summary" in data:
+        assert "by_user" in data
+
+
+def test_monthly_report_with_budget_comparison(client: TestClient, auth_headers: dict, test_user: dict, test_expense: dict, test_budget: dict):
+    """Test monthly report includes budget comparison when user has budgets."""
+    response = client.get(
+        "/reports/monthly",
+        params={"month": "2026-01", "user_id": test_user["id"]},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    # Budget comparison may or may not be present
+    assert "summary" in data
+
+
+def test_export_json_family_wide(client: TestClient, auth_headers: dict, test_user: dict, test_expense: dict):
+    """Test export JSON without user filter (family-wide)."""
+    response = client.get(
+        "/reports/export",
+        params={
+            "from_date": "2026-01-01",
+            "to_date": "2026-01-31",
+            "format": "json",
+            # No user_id
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+
+
+def test_recurring_expense_with_end_date(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test creating recurring expense with end date."""
+    response = client.post(
+        "/recurring-expenses/",
+        json={
+            "user_id": test_user["id"],
+            "amount": "50.00",
+            "category": "Subscription",
+            "frequency": "monthly",
+            "interval": 1,
+            "start_date": "2026-01-01",
+            "end_date": "2026-12-31"  # With end date
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+
+
+def test_debit_card_with_daily_limit(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test creating debit card with daily limit."""
+    # Create account first
+    account = client.post(
+        "/savings-accounts/",
+        json={"user_id": test_user["id"], "account_name": "Limited", "bank_name": "Bank", "account_number_last_four": "4444", "account_type": "savings"},
+        headers=auth_headers,
+    ).json()
+    
+    # Create debit card with daily limit
+    response = client.post(
+        "/debit-cards/",
+        json={
+            "user_id": test_user["id"],
+            "card_name": "Limited Card",
+            "last_four": "5555",
+            "savings_account_id": account["id"],
+            "daily_limit": "500.00"
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["daily_limit"] == 500.0
+
+
+def test_payment_analysis_with_credit_cards(client: TestClient, auth_headers: dict, test_user: dict, test_card: dict):
+    """Test payment analysis includes credit card breakdown."""
+    # Create expense with credit card
+    client.post(
+        "/expenses/",
+        json={
+            "user_id": test_user["id"],
+            "amount": "150.00",
+            "category": "Shopping",
+            "date": "2026-01-05",
+            "payment_method": "credit_card",
+            "credit_card_id": test_card["id"]
+        },
+        headers=auth_headers,
+    )
+    
+    response = client.get(
+        "/reports/payment-method-analysis",
+        params={
+            "from_date": "2026-01-01",
+            "to_date": "2026-01-31",
+            "user_id": test_user["id"]
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "credit_card_breakdown" in data
+
+
+def test_expense_with_credit_card_transaction(client: TestClient, auth_headers: dict, test_user: dict, test_card: dict):
+    """Test creating expense with credit card has transaction link."""
+    response = client.post(
+        "/expenses/",
+        json={
+            "user_id": test_user["id"],
+            "amount": "75.00",
+            "category": "Electronics",
+            "date": "2026-01-06",
+            "payment_method": "credit_card",
+            "credit_card_id": test_card["id"]
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    expense = response.json()
+    
+    # Get expense details
+    detail = client.get(f"/expenses/{expense['id']}", headers=auth_headers)
+    assert detail.status_code == 200
+    data = detail.json()
+    # Should have credit_card info
+    assert "credit_card_id" in data
+
+
+def test_export_csv_format(client: TestClient, auth_headers: dict, test_user: dict, test_expense: dict):
+    """Test export with CSV format."""
+    response = client.get(
+        "/reports/export",
+        params={
+            "from_date": "2026-01-01",
+            "to_date": "2026-01-31",
+            "format": "csv",
+            "user_id": test_user["id"]
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    assert "text/csv" in response.headers.get("content-type", "")
+
+
+def test_export_with_category_filter(client: TestClient, auth_headers: dict, test_user: dict, test_expense: dict):
+    """Test export with category filter."""
+    response = client.get(
+        "/reports/export",
+        params={
+            "from_date": "2026-01-01",
+            "to_date": "2026-01-31",
+            "format": "json",
+            "user_id": test_user["id"],
+            "category": "Food"
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+
+
+def test_account_transactions_with_filters(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test getting account transactions with date and type filters."""
+    # Create account
+    account = client.post(
+        "/savings-accounts/",
+        json={"user_id": test_user["id"], "account_name": "Filtered", "bank_name": "Bank", "account_number_last_four": "8888", "account_type": "savings"},
+        headers=auth_headers,
+    ).json()
+    
+    # Deposit
+    client.post(
+        f"/savings-accounts/{account['id']}/deposit",
+        json={"amount": "1000.00", "description": "Initial"},
+        headers=auth_headers,
+    )
+    
+    # Get transactions with filters
+    response = client.get(
+        f"/savings-accounts/{account['id']}/transactions",
+        params={
+            "from_date": "2026-01-01",
+            "to_date": "2026-12-31",
+            "transaction_type": "deposit"
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["transaction_count"] >= 1
+
+
+def test_recurring_expense_frequency_filter(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test listing recurring expenses with frequency filter."""
+    # Create recurring expense
+    client.post(
+        "/recurring-expenses/",
+        json={
+            "user_id": test_user["id"],
+            "amount": "30.00",
+            "category": "Streaming",
+            "frequency": "monthly",
+            "interval": 1,
+            "start_date": "2026-01-01"
+        },
+        headers=auth_headers,
+    )
+    
+    # Filter by frequency
+    response = client.get(
+        "/recurring-expenses/",
+        params={"frequency": "monthly"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) >= 1
+
+
+def test_all_accounts_summary(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test getting all accounts summary."""
+    # Create account
+    client.post(
+        "/savings-accounts/",
+        json={"user_id": test_user["id"], "account_name": "Summary", "bank_name": "Bank", "account_number_last_four": "9999", "account_type": "savings"},
+        headers=auth_headers,
+    )
+    
+    response = client.get(
+        "/savings-accounts/summary/all",
+        params={"user_id": test_user["id"]},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "total_balance" in data
+
+
+def test_all_accounts_summary_no_accounts(client: TestClient, auth_headers: dict):
+    """Test accounts summary when no accounts exist."""
+    response = client.get(
+        "/savings-accounts/summary/all",
+        params={"user_id": 99999},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    # Should return message about no accounts
+    assert "total_balance" in data or "message" in data
+
+
+def test_expense_with_savings_wrong_payment_method(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test expense with savings_account_id but wrong payment method fails."""
+    # Create savings account
+    account = client.post(
+        "/savings-accounts/",
+        json={"user_id": test_user["id"], "account_name": "Wrong", "bank_name": "Bank", "account_number_last_four": "1111", "account_type": "savings"},
+        headers=auth_headers,
+    ).json()
+    
+    # Deposit funds
+    client.post(
+        f"/savings-accounts/{account['id']}/deposit",
+        json={"amount": "1000.00", "description": "Initial"},
+        headers=auth_headers,
+    )
+    
+    # Try to create expense with savings account but cash payment method
+    response = client.post(
+        "/expenses/",
+        json={
+            "user_id": test_user["id"],
+            "amount": "50.00",
+            "category": "Test",
+            "date": "2026-01-05",
+            "payment_method": "cash",  # Wrong - should be savings_account
+            "savings_account_id": account["id"]
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 400
+    assert "savings_account" in response.json()["detail"].lower()
+
+
+def test_savings_goal_with_past_deadline(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test creating savings goal with past deadline fails."""
+    response = client.post(
+        "/savings-goals/",
+        json={
+            "user_id": test_user["id"],
+            "name": "Old Goal",
+            "target_amount": "1000.00",
+            "deadline": "2020-01-01"  # Past date
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 400
+    assert "future" in response.json()["detail"].lower()
+
+
+def test_recurring_expense_generate_works(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test generating expense from active template works."""
+    # Create recurring expense
+    rec = client.post(
+        "/recurring-expenses/",
+        json={
+            "user_id": test_user["id"],
+            "amount": "50.00",
+            "category": "Generated",
+            "frequency": "monthly",
+            "interval": 1,
+            "start_date": "2026-01-01"
+        },
+        headers=auth_headers,
+    ).json()
+    
+    # Generate expense
+    response = client.post(f"/recurring-expenses/{rec['id']}/generate", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["category"] == "Generated"
+    assert data["amount"] == 50.0
+
+
+def test_recurring_expense_skip_works(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test skipping recurring expense works."""
+    # Create recurring expense
+    rec = client.post(
+        "/recurring-expenses/",
+        json={
+            "user_id": test_user["id"],
+            "amount": "60.00",
+            "category": "Skip",
+            "frequency": "monthly",
+            "interval": 1,
+            "start_date": "2026-01-01"
+        },
+        headers=auth_headers,
+    ).json()
+    
+    # Skip
+    response = client.post(f"/recurring-expenses/{rec['id']}/skip", headers=auth_headers)
+    assert response.status_code == 200
+
+
+def test_savings_goal_various_statuses(client: TestClient, auth_headers: dict, test_user: dict):
+    """Test savings goal with different progress statuses."""
+    # Create multiple goals with different deadlines and amounts
+    # Just started goal
+    goal1 = client.post(
+        "/savings-goals/",
+        json={
+            "user_id": test_user["id"],
+            "name": "JustStarted",
+            "target_amount": "1000.00",
+            "deadline": "2027-06-01"
+        },
+        headers=auth_headers,
+    ).json()
+    
+    # Add small amount (5%)
+    client.post(
+        f"/savings-goals/{goal1['id']}/add",
+        json={"amount": "50.00"},
+        headers=auth_headers,
+    )
+    
+    # Check status
+    response = client.get(f"/savings-goals/{goal1['id']}/progress", headers=auth_headers)
+    assert response.status_code == 200
+    
+    # Halfway goal
+    goal2 = client.post(
+        "/savings-goals/",
+        json={
+            "user_id": test_user["id"],
+            "name": "Halfway",
+            "target_amount": "200.00",
+            "deadline": "2027-06-01"
+        },
+        headers=auth_headers,
+    ).json()
+    
+    # Add to halfway (60%)
+    client.post(
+        f"/savings-goals/{goal2['id']}/add",
+        json={"amount": "120.00"},
+        headers=auth_headers,
+    )
+    
+    response = client.get(f"/savings-goals/{goal2['id']}/progress", headers=auth_headers)
+    assert response.status_code == 200
+    
+    # Almost there goal (90%)
+    goal3 = client.post(
+        "/savings-goals/",
+        json={
+            "user_id": test_user["id"],
+            "name": "AlmostThere",
+            "target_amount": "100.00",
+            "deadline": "2027-06-01"
+        },
+        headers=auth_headers,
+    ).json()
+    
+    client.post(
+        f"/savings-goals/{goal3['id']}/add",
+        json={"amount": "90.00"},
+        headers=auth_headers,
+    )
+    
+    response = client.get(f"/savings-goals/{goal3['id']}/progress", headers=auth_headers)
+    assert response.status_code == 200

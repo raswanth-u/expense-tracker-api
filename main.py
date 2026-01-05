@@ -4,6 +4,7 @@ import os
 from collections.abc import AsyncGenerator, Generator
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
+from decimal import Decimal
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Security
@@ -535,7 +536,7 @@ def get_all_cards_summary(user_id: int | None = None, month: str | None = None, 
     start_date, end_date = get_month_exclusive_range(month)
 
     summaries = []
-    total_limit, total_spent = 0, 0
+    total_limit, total_spent = Decimal("0"), Decimal("0")
 
     for card in cards:
         spent = session.exec(
@@ -544,7 +545,7 @@ def get_all_cards_summary(user_id: int | None = None, month: str | None = None, 
                 Expense.date >= start_date,
                 Expense.date < end_date
             )
-        ).one() or 0.0
+        ).one() or Decimal("0")
 
         total_limit += card.credit_limit
         total_spent += spent
@@ -642,7 +643,7 @@ def get_credit_card_utilization(card_id: int, months: int = 3, session: Session 
                 Expense.date >= start_date,
                 Expense.date < end_date
             )
-        ).one() or 0.0
+        ).one() or Decimal("0")
 
         history.append({
             "month": month_str,
@@ -703,7 +704,7 @@ def make_credit_card_payment(card_id: int, payment: CreditCardPayment, session: 
                 else_=-CreditCardTransaction.amount
             )
         )).where(CreditCardTransaction.credit_card_id == card_id)
-    ).one() or 0.0
+    ).one() or Decimal("0")
 
     new_balance = current_balance - payment.amount
 
@@ -978,7 +979,7 @@ def get_category_analysis(category: str, from_date: str, to_date: str, user_id: 
 
     by_month = {}
     for e in expenses:
-        m = e.date[:7]
+        m = e.date.strftime("%Y-%m")
         by_month[m] = by_month.get(m, 0) + e.amount
 
     by_user = {}
@@ -1038,13 +1039,13 @@ def get_spending_trends(months: int = 6, user_id: int | None = None, session: Se
     monthly_data.reverse()
 
     if len(monthly_data) >= 2:
-        recent = sum(m["total_spent"] for m in monthly_data[-3:]) / min(3, len(monthly_data))
-        older = sum(m["total_spent"] for m in monthly_data[:3]) / min(3, len(monthly_data))
+        recent = float(sum(m["total_spent"] for m in monthly_data[-3:])) / min(3, len(monthly_data))
+        older = float(sum(m["total_spent"] for m in monthly_data[:3])) / min(3, len(monthly_data))
         trend = "increasing" if recent > older * 1.1 else "decreasing" if recent < older * 0.9 else "stable"
     else:
         trend = "insufficient_data"
 
-    total_spent = sum(m["total_spent"] for m in monthly_data)
+    total_spent = float(sum(m["total_spent"] for m in monthly_data))
 
     return {
         "user_id": user_id,
@@ -1354,7 +1355,7 @@ def list_recurring_templates(user_id: int | None = None, is_active: bool = True,
 
 @app.get("/recurring-expenses/upcoming")
 def get_upcoming_recurring(days: int = 7, user_id: int | None = None, session: Session = SessionDep, _: str = AuthDep):
-    cutoff = (datetime.now() + timedelta(days=days)).strftime("%Y-%m-%d")
+    cutoff = (datetime.now() + timedelta(days=days)).date()
     query = select(RecurringExpenseTemplate).where(
         RecurringExpenseTemplate.is_active,
         RecurringExpenseTemplate.next_occurrence <= cutoff

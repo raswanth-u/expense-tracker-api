@@ -28,5 +28,10 @@ fi
 echo -e "${YELLOW}🚀 Starting FastAPI application...${NC}"
 echo -e "${YELLOW}📍 Listening on http://0.0.0.0:8000${NC}"
 
-# Start the API
-exec uvicorn main:app --host 0.0.0.0 --port 8000
+# Start the API with coverage if RUN_COVERAGE is set
+if [ "$RUN_COVERAGE" = "true" ]; then
+    echo -e "${YELLOW}📊 Running with coverage enabled...${NC}"
+    exec coverage run --source=main,models,services,utils -m uvicorn main:app --host 0.0.0.0 --port 8000
+else
+    exec uvicorn main:app --host 0.0.0.0 --port 8000
+fi

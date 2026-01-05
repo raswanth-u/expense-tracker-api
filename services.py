@@ -1,6 +1,7 @@
 """Service layer for the expense tracker API - handles business logic."""
 
-from datetime import datetime
+from datetime import datetime, date
+from decimal import Decimal
 from typing import Any, TypeVar
 
 from fastapi import HTTPException
@@ -210,7 +211,7 @@ class ExpenseService:
         session: Session,
         account: SavingsAccount,
         expense: Expense,
-        amount: float
+        amount: Decimal
     ) -> None:
         """Create a withdrawal transaction for savings account."""
         transaction = SavingsAccountTransaction(
@@ -371,10 +372,10 @@ class BudgetService:
     def _get_category_spending(
         session: Session,
         category: str,
-        start_date: str,
-        end_date: str,
+        start_date: date,
+        end_date: date,
         user_id: int | None
-    ) -> float:
+    ) -> Decimal:
         """Get total spending for a category in a date range."""
         query = select(func.sum(Expense.amount)).where(
             Expense.category == category,
@@ -384,13 +385,15 @@ class BudgetService:
         if user_id:
             query = query.where(Expense.user_id == user_id)
 
-        return session.exec(query).one() or 0.0
+        result = session.exec(query).one()
+        return Decimal(str(result)) if result else Decimal("0")
 
     @staticmethod
-    def _determine_status(percentage: float, remaining: float) -> tuple[str, str | None]:
+    def _determine_status(percentage: float, remaining) -> tuple[str, str | None]:
         """Determine budget status and alert message."""
+        remaining_float = float(remaining)
         if percentage >= 100:
-            return "exceeded", f"⚠️ Budget exceeded by ${abs(remaining):.2f}"
+            return "exceeded", f"⚠️ Budget exceeded by ${abs(remaining_float):.2f}"
         elif percentage >= 80:
             return "warning", f"⚡ Warning: {percentage:.1f}% of budget used"
         else:
@@ -444,17 +447,16 @@ class SavingsGoalService:
         get_active_or_404(session, User, data.user_id, "User")
 
         # Validate deadline is in the future
-        try:
-            deadline_date = datetime.strptime(data.deadline, "%Y-%m-%d")
-            if deadline_date.date() < datetime.now().date():
-                raise HTTPException(status_code=400, detail="Deadline must be in the future")
-        except ValueError as e:
-            raise HTTPException(status_code=400, detail="Invalid date format") from e
+        deadline_date = data.deadline
+        if isinstance(deadline_date, str):
+            deadline_date = datetime.strptime(deadline_date, "%Y-%m-%d").date()
+        if deadline_date < datetime.now().date():
+            raise HTTPException(status_code=400, detail="Deadline must be in the future")
 
         return CRUDService.create(session, SavingsGoal, data, created_at=now_iso())
 
     @staticmethod
-    def add_amount(session: Session, goal: SavingsGoal, amount: float) -> SavingsGoal:
+    def add_amount(session: Session, goal: SavingsGoal, amount: Decimal) -> SavingsGoal:
         """Add money to a savings goal."""
         if not goal.is_active:
             raise HTTPException(status_code=400, detail="Cannot add to inactive goal")
@@ -466,7 +468,7 @@ class SavingsGoalService:
         return goal
 
     @staticmethod
-    def withdraw_amount(session: Session, goal: SavingsGoal, amount: float) -> SavingsGoal:
+    def withdraw_amount(session: Session, goal: SavingsGoal, amount: Decimal) -> SavingsGoal:
         """Withdraw money from a savings goal."""
         if not goal.is_active:
             raise HTTPException(status_code=400, detail="Cannot withdraw from inactive goal")
@@ -486,19 +488,18 @@ class SavingsGoalService:
     @staticmethod
     def get_progress(goal: SavingsGoal) -> dict:
         """Get detailed progress for a savings goal."""
-        progress_pct = calculate_percentage(goal.current_amount, goal.target_amount)
+        progress_pct = calculate_percentage(float(goal.current_amount), float(goal.target_amount))
         remaining = goal.target_amount - goal.current_amount
 
-        try:
-            deadline_date = datetime.strptime(goal.deadline, "%Y-%m-%d")
-            days_remaining = (deadline_date - datetime.now()).days
+        deadline_date = goal.deadline
+        if isinstance(deadline_date, str):
+            deadline_date = datetime.strptime(deadline_date, "%Y-%m-%d").date()
+        
+        days_remaining = (deadline_date - datetime.now().date()).days
 
-            if days_remaining > 0 and remaining > 0:
-                daily_required = remaining / days_remaining
-            else:
-                daily_required = 0
-        except ValueError:
-            days_remaining = 0
+        if days_remaining > 0 and remaining > 0:
+            daily_required = float(remaining) / days_remaining
+        else:
             daily_required = 0
 
         status = SavingsGoalService._determine_status(progress_pct, days_remaining)
@@ -506,11 +507,11 @@ class SavingsGoalService:
         return {
             "goal_id": goal.id,
             "goal_name": goal.name,
-            "target_amount": goal.target_amount,
-            "current_amount": goal.current_amount,
-            "remaining_amount": remaining,
+            "target_amount": float(goal.target_amount),
+            "current_amount": float(goal.current_amount),
+            "remaining_amount": float(remaining),
             "progress_percentage": progress_pct,
-            "deadline": goal.deadline,
+            "deadline": goal.deadline.isoformat() if isinstance(goal.deadline, date) else goal.deadline,
             "days_remaining": days_remaining,
             "status": status,
             "required_savings": {
@@ -605,7 +606,7 @@ class AssetService:
         session.commit()
 
     @staticmethod
-    def update_value(session: Session, asset: Asset, new_value: float) -> Asset:
+    def update_value(session: Session, asset: Asset, new_value: Decimal) -> Asset:
         """Update asset current value."""
         asset.current_value = new_value
         asset.updated_at = now_iso()
@@ -731,8 +732,8 @@ class SavingsAccountService:
     def deposit(
         session: Session,
         account: SavingsAccount,
-        amount: float,
-        date: str | None = None,
+        amount: Decimal,
+        txn_date: date | None = None,
         description: str | None = None,
         tags: str | None = None
     ) -> SavingsAccount:
@@ -748,7 +749,7 @@ class SavingsAccountService:
             transaction_type="deposit",
             amount=amount,
             balance_after=account.current_balance,
-            date=date or today_str(),
+            date=txn_date or today_str(),
             description=description or "Deposit",
             tags=tags,
             created_at=now_iso()
@@ -763,8 +764,8 @@ class SavingsAccountService:
     def withdraw(
         session: Session,
         account: SavingsAccount,
-        amount: float,
-        date: str | None = None,
+        amount: Decimal,
+        txn_date: date | None = None,
         description: str | None = None,
         tags: str | None = None
     ) -> SavingsAccount:
@@ -786,7 +787,7 @@ class SavingsAccountService:
             transaction_type="withdrawal",
             amount=amount,
             balance_after=account.current_balance,
-            date=date or today_str(),
+            date=txn_date or today_str(),
             description=description or "Withdrawal",
             tags=tags,
             created_at=now_iso()
@@ -801,8 +802,8 @@ class SavingsAccountService:
     def post_interest(
         session: Session,
         account: SavingsAccount,
-        amount: float,
-        date: str | None = None,
+        amount: Decimal,
+        txn_date: date | None = None,
         description: str | None = None
     ) -> SavingsAccount:
         """Post interest to account."""
@@ -817,7 +818,7 @@ class SavingsAccountService:
             transaction_type="interest",
             amount=amount,
             balance_after=account.current_balance,
-            date=date or today_str(),
+            date=txn_date or today_str(),
             description=description or "Interest payment",
             created_at=now_iso()
         )

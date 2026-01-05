@@ -5,6 +5,9 @@ WORKDIR /code
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Install coverage for integration testing
+RUN pip install --no-cache-dir coverage
+
 # Copy entire project (excludes files listed in .dockerignore)
 COPY . .
 
