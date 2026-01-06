@@ -196,7 +196,7 @@ class ExpenseService:
             session.add(account)
 
         # Create expense
-        expense = CRUDService.create(session, Expense, data)
+        expense = CRUDService.create(session, Expense, data, created_at=now_iso())
 
         # Create savings transaction if applicable
         if account:
@@ -302,7 +302,7 @@ class BudgetService:
                 detail=f"Budget already exists for {data.category} in {data.month}"
             )
 
-        return CRUDService.create(session, Budget, data)
+        return CRUDService.create(session, Budget, data, created_at=now_iso())
 
     @staticmethod
     def get_status(
@@ -429,7 +429,7 @@ class CreditCardService:
                 detail=f"Card ending in {data.last_four} already exists for this user"
             )
 
-        return CRUDService.create(session, CreditCard, data)
+        return CRUDService.create(session, CreditCard, data, created_at=now_iso())
 
 
 # ============================================
